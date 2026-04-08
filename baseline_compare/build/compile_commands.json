@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/root/dong_11.02/MLKQI1.29/baseline_compare/build",
+  "command": "/usr/bin/g++   -g -std=c++17 -O3 -march=native -Wall -Wextra -o CMakeFiles/index_bench.dir/src/unorder_main.cpp.o -c /root/dong_11.02/MLKQI1.29/baseline_compare/src/unorder_main.cpp",
+  "file": "/root/dong_11.02/MLKQI1.29/baseline_compare/src/unorder_main.cpp",
+  "output": "CMakeFiles/index_bench.dir/src/unorder_main.cpp.o"
+}
+]
