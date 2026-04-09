@@ -190,12 +190,16 @@ After constructing the binary tree, LBTree applies a tree-based dynamic programm
 
 ## Experimental Datasets
 
-The associated paper evaluates LBTree on the following datasets:
+The experimental evaluation in the associated paper uses four datasets, including three real-world datasets and one synthetic dataset:
 
-- **MARCO**
-- **SciDocs**
-- **DBLP**
-- **SYN**
+| Dataset | Description |
+|---------|-------------|
+| **MARCO** | A widely used real-world passage retrieval benchmark based on the **MS MARCO Passage Ranking** dataset. It contains **8,841,823** passage objects and **1,010,916** queries. In the paper, **1,000** queries are used for evaluation, while the remaining queries are used as the workload for index construction. |
+| **SciDocs** | A real-world academic retrieval dataset from the **BEIR** benchmark for scientific document retrieval. Each object corresponds to a paper entry with textual fields and metadata. It contains **25,657** objects and **1,000** queries. |
+| **DBLP** | A real-world bibliographic dataset constructed from the official **DBLP** source. It contains **7,772,904** papers, where each paper is treated as an object and its title is used to extract keywords. |
+| **SYN** | A synthetic dataset with **10,000,000** objects and **10,000** distinct keywords. Each object is associated with a simulated keyword set, and synthetic workloads are generated to mimic realistic query locality and popularity skew. |
+
+Please prepare the corresponding local dataset and workload files before running the scripts.
 
 ---
 
