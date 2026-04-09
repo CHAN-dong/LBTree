@@ -199,8 +199,6 @@ The experimental evaluation in the associated paper uses four datasets, includin
 | **DBLP** | A real-world bibliographic dataset constructed from the official **DBLP** source. It contains **7,772,904** papers, where each paper is treated as an object and its title is used to extract keywords. |
 | **SYN** | A synthetic dataset with **10,000,000** objects and **10,000** distinct keywords. Each object is associated with a simulated keyword set, and synthetic workloads are generated to mimic realistic query locality and popularity skew. |
 
-Please prepare the corresponding local dataset and workload files before running the scripts.
-
 ---
 
 ## Notes
