@@ -188,16 +188,6 @@ To scale to large datasets, LBTree first learns clustering patterns from sampled
 
 After constructing the binary tree, LBTree applies a tree-based dynamic programming procedure to break redundant internal nodes and reduce overall cost.
 
-### Update Mechanism
-
-LBTree supports:
-
-- Object insertion
-- Object deletion
-- Local subtree rebuilding under dataset or workload distribution drift
-
----
-
 ## Experimental Datasets
 
 The associated paper evaluates LBTree on the following datasets:
@@ -206,8 +196,6 @@ The associated paper evaluates LBTree on the following datasets:
 - **SciDocs**
 - **DBLP**
 - **SYN**
-
-Please prepare the corresponding local dataset files before running the scripts.
 
 ---
 
@@ -218,16 +206,3 @@ Please prepare the corresponding local dataset files before running the scripts.
 - The Python and C++ parts are designed to work together for construction and evaluation
 
 ---
-
-## Citation
-
-If you find this repository useful, please cite the paper:
-
-```bibtex
-@inproceedings{lbtree2026,
-  title={Modeling and Learning Keyword-Query Indexes},
-  author={Anonymous Author(s)},
-  booktitle={Proceedings of the International Conference on Management of Data (SIGMOD)},
-  year={2026}
-}
-```
