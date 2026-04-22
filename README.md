@@ -1,4 +1,4 @@
-# LBTree: Modeling and Learning Keyword-Query Indexes
+# Learning Keyword-Query Indexes
 
 This repository provides the implementation of **LBTree**, a learned bitmap tree for pure keyword-query indexing.
 
