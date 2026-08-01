@@ -1,10 +1,13 @@
-# Learning Keyword-Query Indexes
+# LBTree: A Learned Index for Conjunctive Keyword Queries
 
-This repository provides the implementation of **LBTree**, a learned bitmap tree for pure keyword-query indexing.
+This repository provides the implementation of **LBTree**, a learned bitmap-tree index for **conjunctive keyword queries**.
 
-LBTree jointly captures both **data distributions** and **query workload distributions** to optimize **query efficiency** and **storage overhead**. The framework first constructs a binary learned tree, **LBTree-B**, through **binary bitmap clustering**, and then converts it into the final **LBTree** through **dynamic-programming-based internal node breakage** for adaptive fanout.
+Unlike existing keyword-query indexes that primarily optimize index structures based on data distributions, LBTree jointly learns from both **data distributions** and **historical query workload distributions** to improve **query efficiency** while controlling **storage overhead**.
 
----
+The framework consists of two stages:
+
+1. **LBTree-B Construction:** A binary learned tree is recursively constructed using **cost-aware binary bitmap clustering**.
+2. **LBTree Optimization:** A tree-based dynamic programming algorithm selectively breaks internal nodes in LBTree-B, producing the final **adaptive-fanout LBTree** with lower query and storage costs.
 
 ## Features
 
