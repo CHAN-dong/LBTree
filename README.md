@@ -197,10 +197,10 @@ The experimental evaluation in the associated paper uses four datasets, includin
 
 | Dataset | Description |
 |---------|-------------|
-| **MARCO** | A widely used real-world passage retrieval benchmark based on the **MS MARCO Passage Ranking** dataset. It contains **8,841,823** passage objects and **1,010,916** queries. In the paper, **1,000** queries are used for evaluation, while the remaining queries are used as the workload for index construction. |
-| **SciDocs** | A real-world academic retrieval dataset from the **BEIR** benchmark for scientific document retrieval. Each object corresponds to a paper entry with textual fields and metadata. It contains **25,657** objects and **1,000** queries. |
-| **DBLP** | A real-world bibliographic dataset constructed from the official **DBLP** source. It contains **7,772,904** papers, where each paper is treated as an object and its title is used to extract keywords. |
-| **SYN** | A synthetic dataset with **10,000,000** objects and **10,000** distinct keywords. Each object is associated with a simulated keyword set, and synthetic workloads are generated to mimic realistic query locality and popularity skew. |
+| **MARCO** | A widely used real-world passage retrieval benchmark based on the **MS MARCO Passage Ranking** dataset. It contains **8,841,823** passage objects and **1,010,916** queries. In the experiments, **1,000** queries are randomly sampled for index performance evaluation, while a randomly selected **10% of the remaining queries** are used as the workload for index construction. |
+| **SciDocs** | A real-world academic retrieval dataset from the **BEIR** benchmark for scientific document retrieval. Each object corresponds to a paper entry, and keywords are extracted from textual fields such as the title and abstract, as well as metadata including authors, publication year, and citations. It contains **25,657** objects and **1,000** queries, of which **900** are used for index construction and the remaining **100** for evaluation. |
+| **DBLP** | A real-world bibliographic dataset constructed from the official **DBLP** source. It contains **7,772,904** papers. Each paper is treated as an object, and every word in its title is extracted as a keyword. The workload is generated from ten groups of popular keywords covering ten computer science areas, with **10,000** queries used for index construction and another **10,000** for evaluation. |
+| **SYN** | A synthetic dataset containing **10,000,000** objects and **10,000** distinct keywords. Each object is associated with **100** keywords sampled uniformly at random. Each query contains **2–10** keywords sampled from a Gaussian distribution over the keyword vocabulary. The experiments use **1,000** queries for index construction and another **1,000** for evaluation. |
 
 ---
 
