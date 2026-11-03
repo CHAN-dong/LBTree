@@ -1,4 +1,13 @@
 # -*- coding: utf-8 -*-
+"""
+Two-plot 2D visualization for dataset + workload with SAME encoding + SAME reducer.
+- Single color only (no clustering).
+- Either path can be "" / None (will be skipped).
+- Token-per-line CSV, first non-empty line can be header like "Title".
+
+Deps: numpy matplotlib scikit-learn (optional: umap-learn)
+Install UMAP:  python -m pip install -U umap-learn
+"""
 
 import os
 import re
@@ -115,6 +124,10 @@ def fit_umap(Z_anchor):
     return reducer, emb_anchor
 
 def fit_tsne_concat(Z_a, Z_b=None):
+    """
+    Fallback: t-SNE doesn't support transform, so we fit on concatenation to keep comparable space.
+    If only one input, just fit on it.
+    """
     from sklearn.manifold import TSNE
     A = Z_a.toarray() if hasattr(Z_a, "toarray") else np.asarray(Z_a)
     if Z_b is not None:

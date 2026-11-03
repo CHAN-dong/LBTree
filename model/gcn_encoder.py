@@ -6,6 +6,31 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+def compact_keyword_projection(model, features):
+    """Optimize only W0 rows used by this sample; retain the full initialized table.
+
+    Adam has no weight decay here. Absent keyword rows have zero gradients and
+    zero moments throughout root training, so their values never change.
+    """
+    features = features.coalesce()
+    keywords, inverse = torch.unique(features.indices()[1], sorted=True, return_inverse=True)
+    if keywords.numel() == model.W0.shape[0]:
+        return features, None
+    state = (model.W0, keywords)
+    model.W0 = nn.Parameter(model.W0.detach().index_select(0, keywords))
+    indices = torch.stack((features.indices()[0], inverse))
+    compact = torch.sparse_coo_tensor(indices, features.values(),
+        (features.shape[0], keywords.numel()), device=features.device).coalesce()
+    return compact, state
+
+
+def restore_keyword_projection(model, state):
+    if state is not None:
+        full_weight, keywords = state
+        with torch.no_grad():
+            full_weight.index_copy_(0, keywords, model.W0.detach())
+        model.W0 = full_weight
+
 
 def csr_to_torch_sparse(X_csr) -> torch.Tensor:
     """
@@ -132,7 +157,7 @@ def gcn_encode_graph(
     if hasattr(X, "shape"):
         num_nodes, vocab_dim = X.shape
     else:
-        raise ValueError("scipy csr_matrix")
+        raise ValueError("g['X'] 应该是 scipy csr_matrix（建议保持稀疏）")
 
     X_sparse = csr_to_torch_sparse(X)
 

@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Tuple, Optional
 import os
 import json
 import shutil
+import time
 import numpy as np
 
 import parameter as param
@@ -24,16 +25,23 @@ def _pack_kw_child_bits(kw_child_bool: np.ndarray) -> np.ndarray:
 # ========== cost used in DP: Cost(N'_{l+r}) per Eq.(33)(34) ==========
 def _cost_updated_node(omega: int, WN: int, sum_q_len_minus1: int,
                        branches: int, ws_left: int, ws_right: int) -> float:
+    """
+    Cost(N'_{branches}) = w_s * W_S * Storage + w_q * W_Q * Query
+    Storage(N') = |omega|*(branches) + 32|omega| + 32*(branches)  (33)
+    Query(N')   = eps|W| + alfa*sum(|q|-1)*branches + beta*branches + gama*(WS_L + WS_R) (34)
+
+    其中 WS_L/WS_R 是子树状态下“被访问分支数”的和（DP 的 WS）。
+    """
     storage = omega * branches + 32 * omega + 32 * branches
     query = (param.EPSILON * WN
              + param.ALFA * sum_q_len_minus1 * branches
-             + param.BETA * branches
+             + param.BETA * WN * branches
              + param.GAMA * (ws_left + ws_right))
 
     return float(param.w_s * param.W_S * storage + param.w_q * param.W_Q * query)
 
 def _print_dp_state(st, chosen_k: int, indent: str = ""):
-    K = len(st.CT) - 1 
+    K = len(st.CT) - 1  # 你说是 1-indexed
     print(indent + f"DPState table: K={K}, chosen k={chosen_k}")
 
     print(indent + f"{'k':>4}  {'CT':>14}  {'WS':>10}  {'PT(l,r)':>12}  mark")
@@ -128,6 +136,10 @@ class TreeNodeBreaker:
         omega, WN, sum_q_len_minus1 = self._node_stats(node_id)
 
         if m.is_leaf:
+            # Boundary: CT[1]=Cost(N), WS[1]=|W_N|  (Algorithm 2 line 6-7)
+            # 这里 Cost(N) 你已经在 build_tree 时用 cost model 决定是否 split；
+            # 为 DP 我们用 meta.cost（你 TreeBuilder 里保存了 split.cost_parent 或 0）
+            # 更稳妥：用 meta.cost，如果 leaf cost=0 你可以把它改成 split.cost_parent
             leaf_cost = float(m.cost) if (m.cost is not None) else 0.0
 
             CT = [float("inf"), leaf_cost]
@@ -208,6 +220,8 @@ class TreeNodeBreaker:
         indent = "  " * depth
         
         # _print_dp_state(st, k, indent=indent)
+
+        # 同时单独再打印一下这次选中的分裂也行
         l, r = st.PT[k]
         # print(indent + f"chosen: PT[{k}] = ({l},{r}), CT[{k}]={st.CT[k]}, WS[{k}]={st.WS[k]}")
 
@@ -227,6 +241,10 @@ class TreeNodeBreaker:
 
     # -------- write new tree + internal bitmaps --------
     def _subtree_keywords(self, new_node: NewNode) -> np.ndarray:
+        """
+        Return keyword ids appearing in this subtree (union).
+        完全使用 builder 内存缓存，不读磁盘。
+        """
         if new_node.is_leaf:
             return np.asarray(self.builder.get_node_keywords_mem(new_node.old_id), dtype=np.int64)
 
@@ -240,6 +258,10 @@ class TreeNodeBreaker:
         return np.unique(np.concatenate(non_empty)).astype(np.int64)
 
     def _materialize_and_save(self, new_root: NewNode) -> int:
+        """
+        直接把 break 后的新树写成单文件 tree.bin。
+        不再依赖 old_out_dir 下的任何 .npy。
+        """
         node_records = []
         self._new_meta = {}
 
@@ -325,6 +347,7 @@ class TreeNodeBreaker:
 
         new_root_id = dfs(new_root, 0)
 
+        # 清理 break 目录下历史遗留的旧文件
         for fn in os.listdir(self.out_dir_break):
             if fn.endswith(".npy") or fn == "tree.json":
                 path = os.path.join(self.out_dir_break, fn)
@@ -421,26 +444,31 @@ class TreeNodeBreaker:
     #     return new_root_id
 
     def run(self, root_old_id: int) -> Dict[str, Any]:
-        st_root = self._dp_compute(root_old_id)
+        t0 = time.perf_counter()
+        self._dp_compute(root_old_id)
+        dp_seconds = time.perf_counter() - t0
 
+        t0 = time.perf_counter()
         roots = self._materialize(root_old_id, 1)
         assert len(roots) == 1
         new_root = roots[0]
+        backtrace_seconds = time.perf_counter() - t0
 
+        t0 = time.perf_counter()
         new_root_id = self._materialize_and_save(new_root)
+        export_seconds = time.perf_counter() - t0
 
         # DP perspective:
-        cost_before = float(self._dp_compute(root_old_id).CT[1])   # retained root cost
-        # after-break cost = optimal "broken" cost among k>=2, i.e. min_k CT[k]
+        cost_before = sum(float(m.cost) for m in self.meta.values())
         st = self._dp_compute(root_old_id)
-        if len(st.CT) <= 2:
-            cost_after = cost_before
-            best_k = 1
-        else:
-            best_k = int(np.argmin(st.CT[1:])) + 1
-            cost_after = float(st.CT[best_k])
+        # The root must be retained, matching the tree actually materialized.
+        best_k = 1
+        cost_after = float(st.CT[1])
 
         return {
+            "dp_compute_seconds": dp_seconds,
+            "dp_backtrace_seconds": backtrace_seconds,
+            "fanout_export_seconds": export_seconds,
             "old_root": int(root_old_id),
             "new_root": int(new_root_id),
             "break_dir": self.out_dir_break,

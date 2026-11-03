@@ -59,6 +59,7 @@ void BitmapIndexBaseline::buildFromDatasetCSV(
   if (!in) throw std::runtime_error("Cannot open dataset file: " + dataset_csv);
   total_object_keyword_occurrences_ = 0;
 
+  // 先把每行对象解析成 keyword id 列表（两遍构建：先读、再分配 bitmap）
   std::vector<std::vector<int>> objects;
   objects.reserve(1024);
 
@@ -90,11 +91,13 @@ void BitmapIndexBaseline::buildFromDatasetCSV(
     }
 
     if (!kw_ids.empty()) {
+      // 去重（避免同一对象重复关键词导致重复 set）
       std::sort(kw_ids.begin(), kw_ids.end());
       kw_ids.erase(std::unique(kw_ids.begin(), kw_ids.end()), kw_ids.end());
       total_object_keyword_occurrences_ += (int64_t)kw_ids.size();  // NEW
       objects.push_back(std::move(kw_ids));
     } else {
+      // 允许空对象：仍然计入 object 数（但没有关键词）
       objects.push_back({});
     }
   }
@@ -126,6 +129,7 @@ std::vector<int64_t> BitmapIndexBaseline::query(const std::vector<int>& keyword_
   auto it0 = bitmaps_.find(keyword_ids[0]);
   if (it0 == bitmaps_.end()) return {};
 
+  // 拷贝第一个 bitmap 作为 hit
   std::vector<uint64_t> hit = it0->second;
 
   for (size_t i = 1; i < keyword_ids.size(); ++i) {
@@ -136,9 +140,10 @@ std::vector<int64_t> BitmapIndexBaseline::query(const std::vector<int>& keyword_
     uint64_t or_acc = 0;
     for (size_t w = 0; w < hit.size(); ++w) {
       hit[w] &= bm[w];
-      or_acc |= bm[w];
+      or_acc |= hit[w];
     }
 
+    // 早停
     if (or_acc == 0) return {};
   }
 
@@ -148,12 +153,14 @@ std::vector<int64_t> BitmapIndexBaseline::query(const std::vector<int>& keyword_
   for (size_t w = 0; w < hit.size(); ++w) {
     uint64_t x = hit[w];
     while (x) {
-
+      // 取最低位 1 的位置（0..63）
       unsigned tz = (unsigned)__builtin_ctzll(x);
       int64_t oid = (int64_t)((w << 6) + tz);
 
+      // 最后一个 word 可能有越界位（防御性判断）
       if (oid < num_objects_) out.push_back(oid);
 
+      // 清掉最低位 1
       x &= (x - 1);
     }
   }
@@ -206,6 +213,7 @@ void BitmapIndexBaseline::exportSamplesCSVBasic(
   std::ofstream out(out_csv);
   if (!out) throw std::runtime_error("Cannot open output csv file: " + out_csv);
 
+  // 仅输出你指定字段
   out << "num_objects,"
       << "dataset_total_keyword_occurrences,"
       << "dataset_distinct_keywords,"
@@ -250,6 +258,7 @@ void BitmapIndexBaseline::buildFromObjects(const std::vector<std::vector<int>>& 
   bitmaps_.reserve(1024);
 
   for (int64_t oid = 0; oid < num_objects_; ++oid) {
+    // 复制一份做去重（防御性）
     std::vector<int> kw_ids = objects[(size_t)oid];
     std::sort(kw_ids.begin(), kw_ids.end());
     kw_ids.erase(std::unique(kw_ids.begin(), kw_ids.end()), kw_ids.end());

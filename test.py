@@ -48,9 +48,9 @@ def main():
     # improverate = 1e-4
     # cst = get_root_costs(A_ow=A_ow_all, A_qw=A_qw_all)
 
-    cost_improve_eps = 10000
+    cost_improve_eps = 0.0  # normalized Eq. (4): split only on a strict improvement
     # cost_improve_eps = 100
-    # param.set_root_costs(1/Ws, 1/Wq)
+    # param.set_root_costs(Ws, Wq)  # raw reference costs; TreeBuilder initializes these
     # print("Init W_S =", param.W_S, "Init W_Q =", param.W_Q)
 
     n_all = A_ow_all.shape[0]
@@ -59,14 +59,14 @@ def main():
     root_obj_idx = np.arange(n_all, dtype=np.int64)
     root_query_idx = np.arange(m_all, dtype=np.int64)
     
-    learn_rate = 1e-3
+    learn_rate = 0.0005
 
     builder = TreeBuilder(
         A_ow_all=A_ow_all,
         A_qw_all=A_qw_all,
         out_dir=binary_out_dir,
-        N_sample=1000,          # sampling size
-        K_graph=20,
+        N_sample=None,          # paper default: ceil(node object count / 100)
+        K_graph=None,           # paper default: ceil(log2(sample count))
         epochs=300,
         lr=learn_rate,
         balance_lambda=1e-3,
@@ -87,13 +87,14 @@ def main():
     print("Break done:", info)
 
     # print("Original bitmap cost: ", cst)
-
+    # 1) 原树 cost（按 builder meta）
     # cost_before_tree = tree_cost_from_builder_meta(builder, root_id, A_ow_all=A_ow_all, A_qw_all=A_qw_all)
     # print("Original tree cost (tree-sum):", cost_before_tree)
     # 3) break 后树 cost（从 break tree.json）
     # cost_after_tree = tree_cost_from_treejson("./tree_out_break", A_ow_all=A_ow_all, A_qw_all=A_qw_all)
     # print("Break tree cost (tree-sum):", cost_after_tree)
 
+    # 4) 同时打印 DP 自己的 before/after
     # print("DP cost_before:", info["cost_before_dp"], "DP cost_after:", info["cost_after_dp"], "best_k:", info["best_k_root"])
 
 

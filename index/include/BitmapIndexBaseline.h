@@ -47,17 +47,11 @@ public:
 static std::vector<uint64_t> FromPackedLittle(const uint8_t* bytes, size_t nbytes, size_t numBits) {
   const size_t nwords = (numBits + 63) >> 6;
   std::vector<uint64_t> bm(nwords, 0ULL);
-  for (size_t i = 0; i < numBits; ++i) {
-    const size_t by = i >> 3;   // byte index
-    const size_t bi = i & 7;    // bit index within byte (little-endian)
-    if (by >= nbytes) break;
-    const bool v = (((bytes[by] >> bi) & 1U) != 0);
-    if (v) {
-      const size_t w = i >> 6;
-      const size_t b = i & 63;
-      bm[w] |= (uint64_t(1) << b);
-    }
-  }
+  const size_t needed = (numBits + 7) / 8;
+  const size_t count = nbytes < needed ? nbytes : needed;
+  for (size_t i = 0; i < count; ++i)
+    bm[i >> 3] |= uint64_t(bytes[i]) << ((i & 7) * 8);
+  if (numBits % 64) bm.back() &= (uint64_t(1) << (numBits % 64)) - 1;
   return bm;
 }
 

@@ -3,7 +3,6 @@
 #include <fstream>
 #include <stdexcept>
 #include <algorithm>
-#include "nlohmann/json.hpp"
 
 static std::string joinPath(const std::string& dir, const std::string& file) {
   if (dir.empty()) return file;
@@ -267,10 +266,11 @@ void LBTree::buildFromPythonTree(const std::string& outDir) {
       if (O < 0) throw std::runtime_error("Negative obj_count in tree.bin");
 
       auto objIds = readI64Vec(in, static_cast<size_t>(O));
-      node->setLeafObjects(objIds);
+      node->setLeafObjects(std::move(objIds));
 
       int32_t K = readI32(in);
       if (K < 0) throw std::runtime_error("Negative kw_count in tree.bin");
+      node->reserveKeywords(static_cast<size_t>(K));
 
       size_t bytesPerRow = (static_cast<size_t>(O) + 7) / 8;
       std::vector<uint8_t> row(bytesPerRow);
@@ -281,7 +281,7 @@ void LBTree::buildFromPythonTree(const std::string& outDir) {
 
         auto bs = BitmapIndexBaseline::FromPackedLittle(
             row.data(), bytesPerRow, static_cast<size_t>(O));
-        node->addKeywordObjectBits(kw, bs);
+        node->addKeywordObjectBits(kw, std::move(bs));
       }
 
     } else {
@@ -296,6 +296,7 @@ void LBTree::buildFromPythonTree(const std::string& outDir) {
 
       int32_t K = readI32(in);
       if (K < 0) throw std::runtime_error("Negative kw_count in tree.bin");
+      node->reserveKeywords(static_cast<size_t>(K));
 
       size_t bytesPerRow = (static_cast<size_t>(C) + 7) / 8;
       std::vector<uint8_t> row(bytesPerRow);
@@ -306,7 +307,7 @@ void LBTree::buildFromPythonTree(const std::string& outDir) {
 
         auto mask = BitmapIndexBaseline::FromPackedLittle(
             row.data(), bytesPerRow, static_cast<size_t>(C));
-        node->addKeywordChildMask(kw, mask);
+        node->addKeywordChildMask(kw, std::move(mask));
       }
     }
   }

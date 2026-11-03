@@ -84,6 +84,11 @@ def cluster_probabilities(
     dropout: float = 0.0,
     device: Optional[str] = None,
 ) -> torch.Tensor:
+    """
+    Convenience: build MLP, run forward, return probs [N,C].
+    Note: 这里是“未训练”的随机初始化版本，只是跑通管线。
+    训练版本下一步会把 model 保存下来并迭代优化。
+    """
     if device is None:
         device = emb.device.type if hasattr(emb, "device") else "cpu"
 
