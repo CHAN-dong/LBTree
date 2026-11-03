@@ -1,3 +1,5 @@
+# Legacy experiment utility; not used by the default paper construction path.
+# See model/query_latency.py and benchmarks/train_query_model.py for Eq. (2).
 # -*- coding: utf-8 -*-
 """
 Predict bitmap query time and estimate bitmap index storage size.

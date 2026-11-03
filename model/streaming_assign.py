@@ -130,7 +130,7 @@ def streaming_assign(
         object_query_hits = _build_hit_matrix_H(A_ow_csr, A_qw_csr, max_hits=250_000)
 
     from model.native_stream import assign as native_assign
-    native = native_assign(A_ow_csr, A_qw_csr, object_query_hits,
+    native = None if parm.COST_MODE != 'analytic' else native_assign(A_ow_csr, A_qw_csr, object_query_hits,
         seed_obj_left, seed_obj_right, seed_q_left, seed_q_right,
         float(epsilon), float(alpha), float(beta), float(gamma),
         float(parm.w_s * parm.W_S), float(parm.w_q * parm.W_Q), float(stream_balance_lambda))
@@ -241,15 +241,20 @@ def streaming_assign(
         kw_set = _build_kw_set_from_objs(seed_objs)
         miss_cnt = _build_miss_cnt_from_kw_set(kw_set)
 
-        active = np.zeros(m, dtype=bool)
-        if seed_qs.size > 0:
-            active[seed_qs] = True
+        active = (miss_cnt == 0) & (q_len > 0)
 
         obj_list = [int(x) for x in seed_objs.tolist()]
         active_count = int(active.sum())
         active_sum_qm1 = float(q_qm1[active].sum())
 
+        if object_query_hits is not None:
+            results = np.asarray(object_query_hits[seed_objs].sum(axis=0)).ravel().astype(float)
+        else:
+            results = np.zeros(m, dtype=float)
+            for oid in seed_objs:
+                results[_object_hit_queries(_row_indices_unique_obj(int(oid)))] += 1
         return {
+            "results": results,
             "obj_list": obj_list,
             "kw_set": kw_set,
             "O": int(len(obj_list)),
@@ -351,13 +356,26 @@ def streaming_assign(
             + gamma_f * float(hit_new)
         )
 
-        delta_total = parm.weighted_cost(delta_storage, delta_query_existing + delta_query_new)
+        if parm.COST_MODE == 'analytic':
+            delta_query = delta_query_existing + delta_query_new + gamma_f * float(num_new)
+        else:
+            after_active = active.copy(); after_active[new_qs] = True
+            after_results = state['results'].copy(); after_results[hit_q] += 1
+            before = np.asarray(parm.predict_query(O, q_len[active].astype(float), state['results'][active])).sum()
+            after = np.asarray(parm.predict_query(O+1, q_len[after_active].astype(float), after_results[after_active])).sum()
+            # Only newly accessed children change the parent bitmap's result size.
+            parent_results = left['active'].astype(float) + right['active'].astype(float)
+            parent_before = np.asarray(parm.predict_query(2, q_len[new_qs].astype(float), parent_results[new_qs])).sum()
+            parent_after = np.asarray(parm.predict_query(2, q_len[new_qs].astype(float), parent_results[new_qs]+1)).sum()
+            delta_query = after - before + parent_after - parent_before
+        delta_total = parm.weighted_cost(delta_storage, delta_query)
 
         return delta_total, new_kws, new_qs
 
     def _apply_update(state, oid: int, new_kws, new_qs: np.ndarray):
         state["obj_list"].append(int(oid))
         state["O"] += 1
+        state["results"][_cached_object_hit_queries(oid, _row_indices_unique_obj(oid))] += 1
 
         if new_kws:
             kw_set = state["kw_set"]

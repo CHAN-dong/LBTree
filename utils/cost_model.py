@@ -4,7 +4,7 @@ import parameter as P
 
 def storage_cost(num_objects: int, num_keywords: int) -> float:
     """
-    Storage(B) = |ΩO|*|O| + 32*|ΩO| + 32*|O|
+    Storage(B) = |惟O|*|O| + 32*|惟O| + 32*|O|
     (bit-level model in the paper)
     """
     return (num_keywords * num_objects) + (32 * num_keywords) + (32 * num_objects)
@@ -15,11 +15,11 @@ def query_cost_single(
     r_size: int,
 ) -> float:
     """
-    Query(B,q) = ε + α*(|Ωq|-1)*|O| + β*|O| + γ*|Rq|
+    Query(B,q) = 蔚 + 伪*(|惟q|-1)*|O| + 尾*|O| + 纬*|Rq|
     """
     if q_len <= 0:
         return 0.0
-    return P.EPSILON + P.ALFA * (q_len - 1) * num_objects + P.BETA * num_objects + P.GAMA * r_size
+    return float(P.predict_query(num_objects, q_len, r_size))
 
 
 def _get_row_term_ids(A_qw, q_idx: int) -> List[int]:

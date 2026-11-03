@@ -67,74 +67,22 @@ def node_cost(
     """
     obj_idx = np.asarray(obj_idx, dtype=np.int64)
     query_idx = np.asarray(query_idx, dtype=np.int64)
-
-    O = int(obj_idx.size)
-    if O == 0:
-        return 0.0
-
-    Aow = None
-    if keyword_count is not None:
-        omega = int(keyword_count)
+    count = len(obj_idx)
+    if count == 0: return 0.0
+    node = A_ow_all[obj_idx]
+    keywords = int(keyword_count) if keyword_count is not None else int(np.unique(node.indices).size)
+    storage = keywords * count + 32 * keywords + 32 * count
+    qnode = A_qw_all[query_idx]
+    lengths = np.diff(qnode.indptr).astype(np.float64)
+    hits = context.slice_hits(obj_idx, query_idx) if context is not None else None
+    if hits is not None:
+        result_counts = np.asarray(hits.sum(axis=0)).ravel().astype(np.float64)
     else:
-        Aow = A_ow_all[obj_idx]
-        omega = int(np.asarray(Aow.sum(axis=0)).reshape(-1).astype(np.int64).nonzero()[0].size)
-
-    storage = (omega * O) + (32 * omega) + (32 * O)
-
-    if context is not None and context.hits is not None:
-        sum_r = int(context.slice_hits(obj_idx, query_idx).sum())
-        sum_q = int(np.maximum(context.query_lengths[query_idx] - 1, 0).sum())
-        qcost = (query_idx.size * param.EPSILON + param.ALFA * sum_q * O
-                 + param.BETA * query_idx.size * O + param.GAMA * sum_r)
-        return float(param.weighted_cost(storage, qcost))
-
-    # For |R_q|: exact postings intersection on this node
-    if Aow is None:
-        Aow = A_ow_all[obj_idx]
-    Aow_csc = Aow.tocsc()
-    qcost = 0.0
-
-    sum_r = 0
-    sum_q = 0
-
-    for q in query_idx:
-        q_row = A_qw_all[q]
-        term_ids = q_row.indices
-        q_len = int(term_ids.size)
-        if q_len == 0:
-            continue
-
-        postings = []
-        for t in term_ids:
-            s = Aow_csc.indptr[t]
-            e = Aow_csc.indptr[t + 1]
-            postings.append(Aow_csc.indices[s:e])
-
-        postings.sort(key=lambda x: x.size)
-        if postings[0].size == 0:
-            r_size = 0
-        else:
-            cand = postings[0]
-            for pl in postings[1:]:
-                if cand.size == 0:
-                    break
-                cand = np.intersect1d(cand, pl, assume_unique=False)
-            r_size = int(cand.size)
-        
-        # print(f"outside: r_size: {r_size}, q_len: {q_len}")
-        sum_r += r_size
-        sum_q += max(q_len - 1, 0)
-
-    qcost = (
-        query_idx.size * param.EPSILON
-        + param.ALFA * sum_q * O
-        + param.BETA * query_idx.size * O
-        + param.GAMA * sum_r
-    )
-
-    # print(f"outside: ------sum_q: {sum_q}, sum_r: {sum_r}, O: {O}")
-
-    return float(param.weighted_cost(storage, qcost))
+        from model.cooccurrence_graph import _build_hit_matrix_H
+        result_counts = np.asarray(_build_hit_matrix_H(node, qnode).sum(axis=0)).ravel().astype(np.float64)
+    nonempty = lengths > 0
+    query = np.asarray(param.predict_query(count, lengths[nonempty], result_counts[nonempty])).sum() if nonempty.any() else 0.
+    return float(param.weighted_cost(storage, query))
 
 
 # ---------- Output container ----------
@@ -161,8 +109,6 @@ def _complete_external_partition(Aow_node, Aqw_node, obj_idx, query_idx,
                            np.array([],dtype=np.int64),cost_parent,float('inf'))
     ql,qr,_,_=seed_queries_by_sample_clusters(Aow_node[sample_local],Aqw_node,labels,
                                              drop_if_neither=True)
-    if ql.size==0:ql=np.array([0],dtype=np.int64)
-    if qr.size==0 and Aqw_node.shape[0]>1:qr=np.array([1],dtype=np.int64)
     res=streaming_assign(Aow_node,Aqw_node,sample_local[labels==0],sample_local[labels==1],ql,qr,
         epsilon=param.EPSILON,alpha=param.ALFA,beta=param.BETA,gamma=param.GAMA,
         stream_balance_lambda=0.,object_query_hits=node_hits)
@@ -176,8 +122,9 @@ def _complete_external_partition(Aow_node, Aqw_node, obj_idx, query_idx,
     right=node_cost(A_ow_all,A_qw_all,orr,qr,context=context,keyword_count=right_kw.size if reuse else None)
     storage=2*kw.size+32*kw.size+64
     qlens=np.diff(Aqw_node.indptr)
-    query=(param.EPSILON*query_idx.size+param.ALFA*np.maximum(qlens-1,0).sum()*2
-           +param.BETA*query_idx.size*2+param.GAMA*(ql.size+qr.size))
+    accesses = np.isin(query_idx, ql).astype(float) + np.isin(query_idx, qr).astype(float)
+    valid = qlens > 0
+    query = np.asarray(param.predict_query(2, qlens[valid].astype(float), accesses[valid])).sum()
     return SplitResult(ol,orr,ql,qr,cost_parent,left+right+param.weighted_cost(storage,query),
                        left_kw,right_kw,kw,bits)
 
@@ -445,6 +392,15 @@ def bisplit_once(
     node_keyword_ids=None,
 ) -> SplitResult:
 
+    if partition_method == 'learned':
+        from model.paper_bbc import split as paper_split
+        return paper_split(A_ow_all, A_qw_all, obj_idx, query_idx,
+                           sample_count=N_sample, epochs=epochs, lr=lr,
+                           device=device, width=model_width, cache=cache,
+                           context=context, parent_keyword_count=parent_keyword_count,
+                           skip_training=skip_training)
+    if partition_method == 'legacy_gcn':
+        partition_method = 'learned'
     guarded_threshold=partition_method=='threshold_guarded'
     threshold_mode=partition_method in ('threshold_search','threshold_guarded')
     direct_mode=partition_method in ('direct_search','threshold_search','threshold_guarded')

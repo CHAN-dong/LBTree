@@ -221,7 +221,7 @@ class TreeBuilder:
         balance_lambda: float = 0,
         min_objects: int = 1,
         min_queries: int = 0,
-        max_depth: int = 20,
+        max_depth: int = 100,
         cost_improve_eps: float = 0.0,
         device: Optional[str] = None,
         visualize_root: bool = False,
@@ -237,8 +237,18 @@ class TreeBuilder:
         root_min_epochs: int = 0,
         model_width: int = 64,
     ):
-        self.A_ow_all = A_ow_all
-        self.A_qw_all = A_qw_all
+        def binary(matrix):
+            matrix = matrix.tocsr(copy=True)
+            if np.any(matrix.data < 0): raise ValueError('Keyword incidences must be nonnegative')
+            matrix.sum_duplicates(); matrix.eliminate_zeros(); matrix.sort_indices()
+            matrix.data = np.ones(matrix.nnz, dtype=np.float32)
+            return matrix
+        self.A_ow_all = binary(A_ow_all)
+        self.A_qw_all = binary(A_qw_all)
+        if self.A_ow_all.shape[1] != self.A_qw_all.shape[1]:
+            raise ValueError('Objects and queries must use the same vocabulary columns')
+        if np.any(np.diff(self.A_qw_all.indptr) == 0):
+            raise ValueError('Construction queries must be nonempty keyword sets')
         self.out_dir = out_dir
         os.makedirs(out_dir, exist_ok=True)
 
@@ -273,7 +283,7 @@ class TreeBuilder:
         if training_patience < 1:
             raise ValueError('training_patience must be positive')
         self.training_patience = training_patience
-        if partition_method not in ('learned','fi_stream','fi_linear','fi_fm','greedy_cost','kmeans','multilevel','multilevel_refine','learned_refine','budget_refine','budget_group_refine','learned_group_refine','frozen_refine','active','active_refine','adaptive_active','cached_pointwise','direct_search','progressive','threshold_search','threshold_guarded'):
+        if partition_method not in ('learned','legacy_gcn','fi_stream','fi_linear','fi_fm','greedy_cost','kmeans','multilevel','multilevel_refine','learned_refine','budget_refine','budget_group_refine','learned_group_refine','frozen_refine','active','active_refine','adaptive_active','cached_pointwise','direct_search','progressive','threshold_search','threshold_guarded'):
             raise ValueError('Unknown partition_method')
         if partition_method.startswith('fi_') and (root_early_stopping or root_restore_best_valid):
             raise ValueError('FI experiment uses fixed root epochs; root early-stop/checkpoint options are not supported')
@@ -292,6 +302,7 @@ class TreeBuilder:
 
     def _build(self, obj_idx: np.ndarray, query_idx: np.ndarray, depth: int, keywords=None) -> int:
         node_id = self._new_id()
+        self._node_queries[node_id] = np.asarray(query_idx, dtype=np.int64).copy()
         obj_idx = np.asarray(obj_idx, dtype=np.int64)
         query_idx = np.asarray(query_idx, dtype=np.int64)
 
@@ -307,7 +318,7 @@ class TreeBuilder:
         node_keyword_ids=keywords if keywords is not None else _keywords_in_objects(self.A_ow_all,obj_idx)
         omegaN = int(node_keyword_ids.size)
         leaf_fits_budget=(self.max_leaf_bytes is None or omegaN*((obj_idx.size+7)//8)<=self.max_leaf_bytes)
-        skip_training=leaf_fits_budget and (obj_idx.size<=self.min_objects or query_idx.size<=self.min_queries)
+        skip_training=depth >= self.max_depth or (leaf_fits_budget and (obj_idx.size<=self.min_objects or query_idx.size<=self.min_queries))
         sample_count = self.N_sample or min(obj_idx.size, max(2, int(np.ceil(obj_idx.size / 100))))
         if self.sample_cap is not None:sample_count=min(sample_count,self.sample_cap)
         graph_neighbors = self.K_graph or max(1, int(np.ceil(np.log2(max(2, sample_count)))))
@@ -433,10 +444,9 @@ class TreeBuilder:
             is_leaf=False,
             cost=float(param.weighted_cost(
                 2 * omegaN + 32 * omegaN + 64,
-                param.EPSILON * WN
-                + param.ALFA * sum_q_len_minus1 * 2
-                + param.BETA * WN * 2
-                + param.GAMA * (split.q_left.size + split.q_right.size))),
+                np.asarray(param.predict_query(
+                    2, self.build_context.query_lengths[query_idx].astype(float),
+                    np.isin(query_idx, split.q_left).astype(float) + np.isin(query_idx, split.q_right).astype(float))).sum())),
             left=None,
             right=None,
             kind="internal",
@@ -461,6 +471,8 @@ class TreeBuilder:
         parameter.set_root_costs(*refs)
         reference_seconds = time.perf_counter() - t0
         self._reset_mem_tree_cache()
+        self._node_queries = {}
+        self.model_cache.paper_state = None
         self._leaf_bitmap_seconds=0.
         self.model_cache.stage_seconds.clear()
         self.model_cache.root_epochs=self.model_cache.nonroot_epochs=0
