@@ -65,6 +65,10 @@ std::vector<std::vector<int>> load_workload_tokens_to_ids(
       auto it = vocab.find(t);
       if (it == vocab.end()) {
         local.unknown_tokens++;
+        if (!drop_unknown_tokens) {
+          // 如果你不想丢未知词，可以直接让它抛错（更严格）
+          // throw std::runtime_error("Unknown token in workload: " + t);
+        }
         continue;
       }
       q.push_back(it->second);

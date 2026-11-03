@@ -124,6 +124,9 @@ def csr_to_dense_topd(
 
 
 def aow_row_normalized_dense(Aow: csr_matrix, max_dim: int = 256) -> np.ndarray:
+    """
+    “对象相似度特征”：Aow 的 binary 向量（取前 max_dim 维）+ 行归一化（cosine）
+    """
     X = csr_to_dense_topd(Aow, max_dim=max_dim)
     norms = np.linalg.norm(X, axis=1, keepdims=True) + 1e-12
     return X / norms
@@ -165,6 +168,9 @@ def cost_curve_for_two_means(
     iters: int = 300,
     seed: int = 0,
 ):
+    """
+    2-means 每次迭代后计算一次 cost_children（与 S1 曲线对齐的“每轮 cost”概念）
+    """
     t0 = time.perf_counter()
     rng = np.random.RandomState(seed)
     n = X_dense.shape[0]

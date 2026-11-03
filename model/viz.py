@@ -24,6 +24,12 @@ def plot_overlay_s1_s2(
     point_size: float = 12.0,
     base_alpha: float = 0.20,
 ):
+    """
+    叠加式绘图（单张图）：
+      - base: 全部灰
+      - S1: sample 左右簇深色（其余灰）
+      - S2: 非sample的 streaming 左右簇浅色（sample保持深色不变）
+    """
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
 
     n = Z_all_2d.shape[0]

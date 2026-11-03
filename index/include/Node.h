@@ -23,16 +23,21 @@ public:
   size_t childCount() const { return children_.size(); }
 
   // internal: keyword -> child mask bitset (size = childCount)
-  void addKeywordChildMask(int kw, const std::vector<uint64_t>& mask) {
-    kw_child_mask_[kw] = mask;
+  void addKeywordChildMask(int kw, std::vector<uint64_t> mask) {
+    kw_child_mask_[kw] = std::move(mask);
   }
 
   // leaf objects (global ids)
   void setLeafObjects(std::vector<int64_t> objIds) { obj_ids_ = std::move(objIds); }
 
   // leaf: keyword -> object bitmap (size = obj_ids_.size())
-  void addKeywordObjectBits(int kw, const std::vector<uint64_t>& bits) {
-    kw_obj_bits_[kw] = bits;
+  void addKeywordObjectBits(int kw, std::vector<uint64_t> bits) {
+    kw_obj_bits_[kw] = std::move(bits);
+  }
+
+  void reserveKeywords(size_t count) {
+    if (isLeaf()) kw_obj_bits_.reserve(count);
+    else kw_child_mask_.reserve(count);
   }
 
   std::vector<int64_t> query(const std::vector<int>& keywords, QueryStat* st) const;
@@ -64,6 +69,8 @@ public:
   const std::vector<std::shared_ptr<Node>>& children() const { return children_; }
 
 private:
+  void queryInto(const std::vector<int>& keywords, QueryStat* st,
+                 std::vector<int64_t>& out) const;
   int id_;
   Type type_;
 

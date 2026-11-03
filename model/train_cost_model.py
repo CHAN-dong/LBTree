@@ -8,7 +8,7 @@ import numpy as np
 try:
     import pandas as pd
 except ImportError:
-    raise ImportError("install pandas: pip install pandas")
+    raise ImportError("Please install pandas: pip install pandas")
 
 import torch
 import torch.nn as nn
@@ -652,6 +652,7 @@ def plot_theory_vs_true_from_controlled_csv(
 
     # --- 1) x = num_objects (fixed qk=4, rc=10) ---
     d1 = df[df["plot_type"] == "num_objects"].copy()
+    # 防御性过滤：确保控制变量满足默认值
     d1 = d1[(d1["query_keyword_count"] == default_qk) & (d1["result_count"] == default_rc)]
     d1 = d1.sort_values("num_objects").reset_index(drop=True)
     d1["pred"] = predict_theory(params, d1["num_objects"].to_numpy(), default_qk, default_rc)
@@ -672,6 +673,7 @@ def plot_theory_vs_true_from_controlled_csv(
     d2 = d2[(d2["num_objects"] == default_N) & (d2["result_count"] == default_rc)]
     d2 = d2.sort_values("query_keyword_count").reset_index(drop=True)
 
+    # x 有重复（2..8循环），蓝点保留；红线用按x聚合后的均值更好看
     d2["pred_point"] = predict_theory(params, default_N, d2["query_keyword_count"].to_numpy(), default_rc)
     d2_line = d2.groupby("query_keyword_count", as_index=False)["pred_point"].mean()
 
@@ -842,6 +844,7 @@ def main():
         out_csv_dir=EXPORT_CSV_DIR,
     )
 
+    # 1) 先拟合解析模型（非负系数版）
     params_th, metrics_th = fit_theoretical_cost_model_all_positive(
         df=df,
         target_col=TARGET_COL,
@@ -849,6 +852,7 @@ def main():
         seed=SEED,
     )
     
+    # 2) 再用解析模型画三张“固定其他参数”的拟合vs真实图
     plot_theory_vs_true_from_controlled_csv(
         plot_csv=CSV_PLOT,
         params=params_th,

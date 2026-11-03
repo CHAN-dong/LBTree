@@ -42,6 +42,19 @@ def _norm_packed_bits(bits, rows: int, row_bytes: int, name: str) -> np.ndarray:
     return np.ascontiguousarray(bits)
 
 
+def _write_keyword_rows(f, kw_ids, bits):
+    """Same interleaved format, with bounded blocks instead of two writes/row."""
+    width = bits.shape[1]
+    dtype = np.dtype([('keyword', '<i4'), ('bits', 'u1', (width,))], align=False)
+    block_rows = max(1, (4 * 1024 * 1024) // dtype.itemsize)
+    for start in range(0, len(kw_ids), block_rows):
+        stop = min(start + block_rows, len(kw_ids))
+        block = np.empty(stop - start, dtype=dtype)
+        block['keyword'] = kw_ids[start:stop]
+        block['bits'] = bits[start:stop]
+        f.write(memoryview(block).cast('B'))
+
+
 def _write_tree_bin(out_path: str, root_id: int, node_records: list):
     """
     node_records:
@@ -65,7 +78,7 @@ def _write_tree_bin(out_path: str, root_id: int, node_records: list):
     """
     node_records = sorted(node_records, key=lambda x: int(x["node_id"]))
 
-    with open(out_path, "wb") as f:
+    with open(out_path, "wb", buffering=4 * 1024 * 1024) as f:
         f.write(_TREE_MAGIC)
         f.write(struct.pack("<i", int(_TREE_VERSION)))
         f.write(struct.pack("<i", int(root_id)))
@@ -92,10 +105,7 @@ def _write_tree_bin(out_path: str, root_id: int, node_records: list):
 
                 K = int(kw_ids.size)
                 f.write(struct.pack("<i", K))
-                for i in range(K):
-                    f.write(struct.pack("<i", int(kw_ids[i])))
-                    if row_bytes > 0:
-                        f.write(bits[i].tobytes())
+                _write_keyword_rows(f, kw_ids, bits)
 
             else:
                 children_ids = _norm_i32_1d(rec["children_ids"], "children_ids")
@@ -111,10 +121,7 @@ def _write_tree_bin(out_path: str, root_id: int, node_records: list):
 
                 K = int(kw_ids.size)
                 f.write(struct.pack("<i", K))
-                for i in range(K):
-                    f.write(struct.pack("<i", int(kw_ids[i])))
-                    if row_bytes > 0:
-                        f.write(bits[i].tobytes())
+                _write_keyword_rows(f, kw_ids, bits)
 
 
 
@@ -146,6 +153,15 @@ def build_Aow_split_from_objects(
     delimiter: str = ",",
     encoding: str = "utf-8",
 ):
+    """
+    读全部 objects，但只用前 N 个 objects 建 vocab 和 A_ow_sample；
+    再用同一个 vocab 给剩余对象建 A_ow_rest（新词忽略）。
+    Returns:
+      A_ow_sample: (N, d)
+      A_ow_rest:   (n-N, d)
+      vocab: token->id
+      tokens_sample, tokens_rest: List[Set[str]]
+    """
     all_tokens: List[Set[str]] = []
 
     with open(csv_path, "r", encoding=encoding, newline="") as f:
@@ -177,7 +193,7 @@ def read_csv_build_inverted_index(
     has_header: bool = True,
     delimiter: str = ",",
     encoding: str = "utf-8",
-    title_col_if_no_header: int = 1,   
+    title_col_if_no_header: int = 1,   # 没header时默认第2列是title
 ) -> Tuple[List[Set[str]], Dict[str, List[int]], Dict[str, int]]:
     docs_tokens: List[Set[str]] = []
     inv_index: Dict[str, List[int]] = defaultdict(list)
@@ -190,8 +206,10 @@ def read_csv_build_inverted_index(
             if header is None:
                 return [], {}, {}
 
+            # header 可能是 ["Title"] 或 ["Type","Title"]
             header_lc = [h.strip() for h in header]
 
+            # 找到 Title 列（如果 header 里有）
             title_col = None
             for i, h in enumerate(header_lc):
                 if h == text_column:
@@ -201,13 +219,13 @@ def read_csv_build_inverted_index(
             for row_id, cells in enumerate(reader):
                 if not cells:
                     continue
-
+                # 关键：如果 header 只有一个 Title，但数据行是两列 => title 在第2列
                 if title_col is not None and len(header_lc) == 1 and header_lc[0] == "Title" and len(cells) >= 2:
                     text = cells[1].strip()
-
+                # 正常情况：header 里有 Title 且索引合法
                 elif title_col is not None and title_col < len(cells):
                     text = cells[title_col].strip()
-
+                # 兜底：取整行拼起来
                 else:
                     text = " ".join(cells).strip()
 
@@ -222,7 +240,7 @@ def read_csv_build_inverted_index(
             for row_id, cells in enumerate(reader):
                 if not cells:
                     continue
-
+                # 没header：默认第2列是 title；不够则拼整行
                 if len(cells) > title_col_if_no_header:
                     text = cells[title_col_if_no_header].strip()
                 else:
@@ -237,6 +255,10 @@ def read_csv_build_inverted_index(
 
     for t in inv_index:
         inv_index[t].sort()
+
+    # 保存 vocab
+    # with open("./tree_out/vocab.json", "w", encoding="utf-8") as f:
+    #     json.dump(vocab, f, ensure_ascii=False, indent=2)
 
     return docs_tokens, dict(inv_index), vocab
 
@@ -278,7 +300,7 @@ def build_Aow_from_objects(
     object_csv_path: str,
     object_text_column: str = "Title",
     max_objects: Optional[int] = None,
-    save_vocab_path: Optional[str] = None,   
+    save_vocab_path: Optional[str] = None,   # <-- 新增：保存 vocab.json 的路径
 ) -> Tuple[Any, Dict[str, int], Dict[str, List[int]]]:
     """
     Read dataset(objects.csv) and build:
@@ -291,11 +313,13 @@ def build_Aow_from_objects(
         object_csv_path, text_column=object_text_column, has_header=True
     )
 
+    # 1) 截断对象数量
     if max_objects is not None:
         n = min(max_objects, len(obj_tokens))
     else:
         n = len(obj_tokens)
 
+    # 2) 过滤倒排索引，只保留 doc_id < n 的 posting，并重新编号 vocab
     inv_o: Dict[str, List[int]] = {}
     vocab: Dict[str, int] = {}
     for term, postings in inv_o_full.items():
@@ -305,8 +329,10 @@ def build_Aow_from_objects(
         vocab[term] = len(vocab)
         inv_o[term] = postings2
 
+    # 3) 用新的 vocab/inv_o 构建 A_ow
     A_ow = build_binary_matrix_from_inv_index(n, vocab, inv_o)
 
+    # 4) 保存 vocab 到本地（term -> id）
     if save_vocab_path is not None:
         os.makedirs(os.path.dirname(save_vocab_path) or ".", exist_ok=True)
         with open(save_vocab_path, "w", encoding="utf-8") as f:
@@ -333,6 +359,7 @@ def build_Aqw_from_workload(
     )
     m = len(q_tokens)
 
+    # 过滤掉不在 objects vocab 里的词（保证列对齐）
     inv_q: Dict[str, List[int]] = {
         t: ids for t, ids in inv_q_raw.items() if t in vocab
     }
@@ -341,51 +368,13 @@ def build_Aqw_from_workload(
     return A_qw, inv_q
 
 
-def _make_leaf_keyword_object_bitmaps(A_ow_all, obj_idx: np.ndarray):
-    obj_idx = np.ascontiguousarray(np.asarray(obj_idx, dtype=np.int64).reshape(-1))
-    O = int(obj_idx.size)
-
-    if O == 0:
-        return (
-            obj_idx,
-            np.zeros((0,), dtype=np.int64),
-            np.zeros((0, 0), dtype=np.uint8),
-        )
-
-    Aow = A_ow_all[obj_idx].tocsr()
-    kw_ids = _keywords_in_objects(A_ow_all, obj_idx).astype(np.int64)
-    K = int(kw_ids.size)
-
-    row_bytes = (O + 7) // 8
-    if K == 0:
-        return (
-            obj_idx,
-            kw_ids,
-            np.zeros((0, row_bytes), dtype=np.uint8),
-        )
-
-    kw_pos = {int(kw): i for i, kw in enumerate(kw_ids.tolist())}
-    kw_obj_bool = np.zeros((K, O), dtype=bool)
-
-    indptr = Aow.indptr
-    indices = Aow.indices
-    for o in range(O):
-        kws = indices[indptr[o]:indptr[o + 1]]
-        for kw in kws:
-            i = kw_pos.get(int(kw), None)
-            if i is not None:
-                kw_obj_bool[i, o] = True
-
-    kw_obj_bits = np.packbits(
-        kw_obj_bool.astype(np.uint8),
-        axis=1,
-        bitorder="little"
-    ).astype(np.uint8, copy=False)
-
-    return obj_idx, kw_ids, kw_obj_bits
+from utils.packed_bitmap import make_leaf_keyword_object_bitmaps as _make_leaf_keyword_object_bitmaps
 
 
 def _cleanup_legacy_split_files(out_dir: str):
+    """
+    删除历史遗留的 node_*.npy / tree.json，避免旧文件继续占空间。
+    """
     if not os.path.exists(out_dir):
         return
     for fn in os.listdir(out_dir):

@@ -65,6 +65,7 @@ def _result_size_for_query(A_ow, term_ids: List[int]) -> int:
 def get_root_costs(
     A_ow,
     A_qw,
+    object_query_hits=None,
 ) -> Tuple[float, float]:
 
     if hasattr(A_ow, "shape"):
@@ -73,6 +74,9 @@ def get_root_costs(
         num_objects = len(A_ow)
         num_keywords = len(A_ow[0]) if num_objects > 0 else 0
 
+    if hasattr(A_ow, 'indices'):
+        import numpy as np
+        num_keywords = np.unique(A_ow.indices).size
     W_S = storage_cost(num_objects, num_keywords)
 
     W_Q = 0.0
@@ -84,10 +88,30 @@ def get_root_costs(
     else:
         num_queries = len(A_qw)
 
+    # Build postings once for the global reference. Repeated CSR column slicing
+    # otherwise scans the full object matrix for every term of every query.
+    hit_counts = None
+    if object_query_hits is not None:
+        import numpy as np
+        hit_counts = np.asarray(object_query_hits.sum(axis=0)).reshape(-1)
+    postings = A_ow.tocsc() if hit_counts is None and hasattr(A_ow, 'tocsc') else None
     for qi in range(num_queries):
         term_ids = _get_row_term_ids(A_qw, qi)
         q_len = len(term_ids)
-        r_size = _result_size_for_query(A_ow, term_ids)
+        if hit_counts is not None:
+            r_size = int(hit_counts[qi])
+        elif postings is not None and term_ids:
+            import numpy as np
+            lists = [postings.indices[postings.indptr[t]:postings.indptr[t+1]] for t in term_ids]
+            lists.sort(key=len)
+            hits = lists[0]
+            for other in lists[1:]:
+                if not hits.size:
+                    break
+                hits = np.intersect1d(hits, other)
+            r_size = hits.size
+        else:
+            r_size = _result_size_for_query(A_ow, term_ids)
         W_Q += query_cost_single(num_objects, q_len, r_size)
 
-    return P.w_s * W_S + P.w_q * W_Q
+    return W_S, W_Q

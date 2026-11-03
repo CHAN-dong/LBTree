@@ -77,6 +77,7 @@ def streaming_assign(
 
     # optional
     stream_balance_lambda: float = 0.0,
+    object_query_hits=None,
 ) -> StreamingAssignResult:
     """
     Greedy cost-driven streaming assign.
@@ -120,6 +121,21 @@ def streaming_assign(
     A_ow_indices = A_ow_csr.indices
     A_qw_indptr = A_qw_csr.indptr
     A_qw_indices = A_qw_csr.indices
+
+    # Exact object-query hits are invariant throughout a node's assignment.
+    # Compute with CSC posting intersections rather than Python per-object loops.
+    # Fall back to the original bounded-per-object method for broad workloads.
+    from model.cooccurrence_graph import _build_hit_matrix_H
+    if object_query_hits is None:
+        object_query_hits = _build_hit_matrix_H(A_ow_csr, A_qw_csr, max_hits=250_000)
+
+    from model.native_stream import assign as native_assign
+    native = native_assign(A_ow_csr, A_qw_csr, object_query_hits,
+        seed_obj_left, seed_obj_right, seed_q_left, seed_q_right,
+        float(epsilon), float(alpha), float(beta), float(gamma),
+        float(parm.w_s * parm.W_S), float(parm.w_q * parm.W_Q), float(stream_balance_lambda))
+    if native is not None:
+        return StreamingAssignResult(*native, Ew=None, z_o=None, z_q=None)
 
     def _row_indices_unique_obj(row_id: int) -> np.ndarray:
         st, ed = A_ow_indptr[row_id], A_ow_indptr[row_id + 1]
@@ -210,6 +226,12 @@ def streaming_assign(
         if not hit:
             return np.empty(0, dtype=np.int64)
         return np.asarray(hit, dtype=np.int64)
+
+    def _cached_object_hit_queries(oid, obj_kws):
+        if object_query_hits is None:
+            return _object_hit_queries(obj_kws)
+        lo, hi = object_query_hits.indptr[oid:oid + 2]
+        return object_query_hits.indices[lo:hi]
 
     def _build_state(seed_objs: np.ndarray, seed_qs: np.ndarray):
         """
@@ -329,7 +351,7 @@ def streaming_assign(
             + gamma_f * float(hit_new)
         )
 
-        delta_total = parm.w_s * parm.W_S * delta_storage + parm.w_q * parm.W_Q * delta_query_existing + delta_query_new
+        delta_total = parm.weighted_cost(delta_storage, delta_query_existing + delta_query_new)
 
         return delta_total, new_kws, new_qs
 
@@ -407,7 +429,7 @@ def streaming_assign(
     # ------------------------------------------------------------------
     for oid in remaining:
         obj_kws = _row_indices_unique_obj(int(oid))
-        hit_q = _object_hit_queries(obj_kws)
+        hit_q = _cached_object_hit_queries(int(oid), obj_kws)
 
         delta_left, new_kws_left, new_qs_left = _eval_delta(left, obj_kws, hit_q)
         delta_right, new_kws_right, new_qs_right = _eval_delta(right, obj_kws, hit_q)

@@ -1,14 +1,57 @@
 #include <iostream>
 #include <chrono>
+#include <algorithm>
 #include "VocabIO.h"
 #include "WorkloadIO.h"
 #include "BitmapIndexBaseline.h"
 #include "LBTree.h"
 
-int main() {
+
+// int main() {
+
+//   const std::string vocab_path = "../tree_out/vocab.json";
+//   const std::string dataset_path = "../dataset/ir_datasets.csv";
+//   const std::string workload_path = "../dataset/ir_datasets_workload.csv";
+
+//   // 1) 准备 vocab（你自己已有）
+//   std::unordered_map<std::string, int> vocab = load_vocab_json(vocab_path);
+//   // ... load vocab ...
+
+//   // 2) 构建bitmap
+//   BitmapIndexBaseline bix;
+//   bix.buildFromDatasetCSV(dataset_path, vocab, true);
+
+//   // 3) 读取query
+//   QueryStat ioStat;
+//   auto queries = load_workload_tokens_to_ids(
+//       workload_path,
+//       vocab,
+//       /*drop_unknown_tokens=*/true,
+//       /*drop_empty_queries=*/true,
+//       &ioStat
+//   );
+
+//   // 4) 导出sample
+//   bix.exportQuerySamplesCSV(
+//       queries,
+//       "bitmap_query_samples.csv",
+//       /*warmup_rounds=*/3,
+//       /*repeat_per_query=*/5   // 建议>1，后续取均值/中位数更稳
+//   );
+
+//   return 0;
+// }
+
+
+
+int main(int argc, char** argv) {
+  if (argc != 6 && !(argc == 7 && std::string(argv[6]) == "--verify")) {
+    std::cerr << "Usage: lbtree VOCAB_JSON DATASET_CSV WORKLOAD_CSV TREE_DIR FANOUT_TREE_DIR [--verify]\n";
+    return 1;
+  }
 
   // paths
-  const std::string vocab_path = "../tree_out/vocab.json";
+  const std::string vocab_path = argv[1];
 
   // const std::string dataset_path = "/root/dong_11.02/dataset/dblp/dblp_title.csv";
   // const std::string workload_path = "/root/dong_11.02/dataset/dblp/dblp_10venues/workloads/test_all.csv";
@@ -30,10 +73,10 @@ int main() {
   // const std::string py_tree_path = "../tree_out/ir_datasets/";
   // const std::string py_breaked_tree_path = "../tree_out_break/ir_datasets/";
 
-  const std::string dataset_path = "/root/dong_11.02/dataset/synthetic/synthetic_dataset.csv";
-  const std::string workload_path = "/root/dong_11.02/dataset/synthetic/synthetic_query.csv";
-  const std::string py_tree_path = "../tree_out/synthetic/";
-  const std::string py_breaked_tree_path = "../tree_out_break/synthetic/";
+  const std::string dataset_path = argv[2];
+  const std::string workload_path = argv[3];
+  const std::string py_tree_path = argv[4];
+  const std::string py_breaked_tree_path = argv[5];
   
   // 1.1) load vocab.json: token -> id
   auto vocab = load_vocab_json(vocab_path);
@@ -51,6 +94,25 @@ int main() {
   std::cout << "Loaded queries: " << queries.size() << "\n";
   std::cout << "Unknown tokens skipped: " << ioStat.unknown_tokens << "\n";
   std::cout << std::endl;
+
+  if (argc == 7) {
+    BitmapIndexBaseline reference;
+    reference.buildFromDatasetCSV(dataset_path, vocab, true);
+    for (const auto& directory : {py_tree_path, py_breaked_tree_path}) {
+      LBTree tree;
+      tree.buildFromPythonTree(directory);
+      for (const auto& q : queries) {
+        auto expected = reference.query(q);
+        auto actual = tree.query(q, nullptr);
+        std::sort(actual.begin(), actual.end());
+        if (actual != expected) {
+          std::cerr << "Verification failed: " << directory << "\n";
+          return 2;
+        }
+      }
+    }
+    std::cout << "Both trees match the dataset bitmap baseline for all queries.\n";
+  }
 
   // Test 1) baseline 
   // std::cout << "Base line ----" << std::endl;
