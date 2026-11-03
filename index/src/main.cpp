@@ -26,7 +26,7 @@
 //   auto queries = load_workload_tokens_to_ids(
 //       workload_path,
 //       vocab,
-//       /*drop_unknown_tokens=*/true,
+//       /*drop_unknown_tokens=*/false,
 //       /*drop_empty_queries=*/true,
 //       &ioStat
 //   );
@@ -87,12 +87,12 @@ int main(int argc, char** argv) {
   auto queries = load_workload_tokens_to_ids(
       workload_path,
       vocab,
-      /*drop_unknown_tokens=*/true,
+      /*drop_unknown_tokens=*/false,
       /*drop_empty_queries=*/true,
       &ioStat
   );
   std::cout << "Loaded queries: " << queries.size() << "\n";
-  std::cout << "Unknown tokens skipped: " << ioStat.unknown_tokens << "\n";
+  std::cout << "Unknown tokens (preserved as unsatisfiable): " << ioStat.unknown_tokens << "\n";
   std::cout << std::endl;
 
   if (argc == 7) {
@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
   // std::cout << "Base line ----" << std::endl;
   // BitmapIndexBaseline baseline;
   // auto t0 = std::chrono::steady_clock::now();
-  // baseline.buildFromDatasetCSV(dataset_path, vocab, /*drop_unknown_tokens=*/true);
+  // baseline.buildFromDatasetCSV(dataset_path, vocab, /*drop_unknown_tokens=*/false);
   // auto t1= std::chrono::steady_clock::now();
   // auto construct_time = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
   // uint64_t baseline_bytes = baseline.estimateIndexSizeBytes();
@@ -138,9 +138,9 @@ int main(int argc, char** argv) {
   // binary_tree.printSummary();
   auto binary_tree_stat = benchmark_workload(binary_tree, queries, /*warmup=*/10);
   auto s_binary = binary_tree.estimateIndexSizeBreakdown();
-  std::cout << "Leaf MB        = " << (double)s_binary.leafBytes() / 1024.0 / 1024.0 << "\n";
-  std::cout << "Internal MB    = " << (double)s_binary.internalBytes() / 1024.0 / 1024.0 << "\n";
-  std::cout << "Total MB       = " << (double)s_binary.totalBytes() / 1024.0 / 1024.0 << "\n";
+  std::cout << "Leaf MiB        = " << (double)s_binary.leafBytes() / 1024.0 / 1024.0 << "\n";
+  std::cout << "Internal MiB    = " << (double)s_binary.internalBytes() / 1024.0 / 1024.0 << "\n";
+  std::cout << "Total MiB       = " << (double)s_binary.totalBytes() / 1024.0 / 1024.0 << "\n";
   // std::cout << "Binary_tree Total time(ns): " << binary_tree_stat.total_ns << "\n";
   std::cout << "Binary_tree Avg time(ns): " << binary_tree_stat.avg_ns << "\n";
   std::cout << "Binary_tree Internal Node Avg time(ns): " << binary_tree_stat.avg_inter_ns << "\n";
@@ -154,9 +154,9 @@ int main(int argc, char** argv) {
   // fanout_tree.printSummary();
   auto fanout_tree_stat = benchmark_workload(fanout_tree, queries, /*warmup=*/10);
   auto s_fanout = fanout_tree.estimateIndexSizeBreakdown();
-  std::cout << "Leaf MB        = " << (double)s_fanout.leafBytes() / 1024.0 / 1024.0 << "\n";
-  std::cout << "Internal MB    = " << (double)s_fanout.internalBytes() / 1024.0 / 1024.0 << "\n";
-  std::cout << "Total MB       = " << (double)s_fanout.totalBytes() / 1024.0 / 1024.0 << "\n";
+  std::cout << "Leaf MiB        = " << (double)s_fanout.leafBytes() / 1024.0 / 1024.0 << "\n";
+  std::cout << "Internal MiB    = " << (double)s_fanout.internalBytes() / 1024.0 / 1024.0 << "\n";
+  std::cout << "Total MiB       = " << (double)s_fanout.totalBytes() / 1024.0 / 1024.0 << "\n";
   // std::cout << "Fanout_tree Total time(ns): " << fanout_tree_stat.total_ns << "\n";
   std::cout << "Fanout_tree Avg time(ns): " << fanout_tree_stat.avg_ns << "\n";
   std::cout << "Binary_tree Internal Node Avg time(ns): " << fanout_tree_stat.avg_inter_ns << "\n";

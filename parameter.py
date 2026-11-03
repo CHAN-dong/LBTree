@@ -6,7 +6,7 @@ S_REF = Q_REF = 1.0
 W_S = W_Q = 1.0  # reciprocal global references, never recomputed per node
 _INITIALIZED = False
 
-CKPT_PATH = "/data/gpfs/projects/punim2898/MLKQI1.29/dataset/datasets_for_costmodel/Mc_mlp_controlled_accuracy_plots_data.xlsx"
+CKPT_PATH = None  # legacy utilities only; use LBTREE_QUERY_MODEL for the paper path
 
 # cost model parameters
 
@@ -36,3 +36,24 @@ def set_tradeoff(value: float = 0.5):
 def weighted_cost(storage, query):
     return w_s * W_S * storage + w_q * W_Q * query
 
+
+
+# The paper uses a calibrated MLP. The old affine model is an explicit diagnostic.
+import os as _os
+COST_MODE = _os.environ.get('LBTREE_COST_MODE', 'mlp')
+_QUERY_MODEL = None
+
+def predict_query(n, u, results):
+    global _QUERY_MODEL
+    if COST_MODE == 'analytic':
+        return EPSILON + ALFA * (u - 1) * n + BETA * n + GAMA * results
+    if COST_MODE != 'mlp':
+        raise ValueError('LBTREE_COST_MODE must be mlp or analytic')
+    from model.query_latency import load_query_model, predict
+    if _QUERY_MODEL is None:
+        path = _os.environ.get('LBTREE_QUERY_MODEL')
+        if not path:
+            raise RuntimeError('Paper mode requires LBTREE_QUERY_MODEL: calibrate and train Mq first; '
+                               'LBTREE_COST_MODE=analytic is a diagnostic, not paper reproduction')
+        _QUERY_MODEL = load_query_model(path)
+    return predict(_QUERY_MODEL, n, u, results)

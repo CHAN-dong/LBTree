@@ -135,7 +135,7 @@ def _build_csr_from_tokens(tokens_list: List[Set[str]], vocab: Dict[str, int]):
     from scipy.sparse import csr_matrix  # type: ignore
     rows, cols, data = [], [], []
     for i, toks in enumerate(tokens_list):
-        for t in toks:
+        for t in sorted(toks):
             j = vocab.get(t, None)
             if j is None:
                 continue
@@ -178,7 +178,7 @@ def build_Aow_split_from_objects(
     # vocab from sample only
     vocab: Dict[str, int] = {}
     for toks in tokens_sample:
-        for t in toks:
+        for t in sorted(toks):
             if t not in vocab:
                 vocab[t] = len(vocab)
 
@@ -231,7 +231,7 @@ def read_csv_build_inverted_index(
 
                 toks = set(tokenize(text))
                 docs_tokens.append(toks)
-                for t in toks:
+                for t in sorted(toks):
                     if t not in vocab:
                         vocab[t] = len(vocab)
                     inv_index[t].append(row_id)
@@ -248,7 +248,7 @@ def read_csv_build_inverted_index(
 
                 toks = set(tokenize(text))
                 docs_tokens.append(toks)
-                for t in toks:
+                for t in sorted(toks):
                     if t not in vocab:
                         vocab[t] = len(vocab)
                     inv_index[t].append(row_id)
@@ -352,14 +352,17 @@ def build_Aqw_from_workload(
       - A_qw: [num_queries, vocab_size]  (columns aligned with objects' vocab)
       - inv_q: term -> list of query_ids
     Notes:
-      - terms not in vocab are ignored (typical choice in the paper where d=|Ω_O'|).
+      - unknown terms are rejected, never removed from a conjunction.
     """
     q_tokens, inv_q_raw, _vocab_q = read_csv_build_inverted_index(
         workload_csv_path, text_column=query_text_column, has_header=True
     )
     m = len(q_tokens)
+    unknown = set(inv_q_raw) - set(vocab)
+    if unknown:
+        raise ValueError("Training workload contains unknown keywords: " + ", ".join(sorted(unknown)[:10]))
 
-    # 过滤掉不在 objects vocab 里的词（保证列对齐）
+    # Keyword columns are aligned with the object vocabulary.
     inv_q: Dict[str, List[int]] = {
         t: ids for t, ids in inv_q_raw.items() if t in vocab
     }

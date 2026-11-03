@@ -22,23 +22,16 @@ def _pack_kw_child_bits(kw_child_bool: np.ndarray) -> np.ndarray:
     return np.packbits(kw_child_bool.astype(np.uint8), axis=1, bitorder="little")
 
 
-# ========== cost used in DP: Cost(N'_{l+r}) per Eq.(33)(34) ==========
-def _cost_updated_node(omega: int, WN: int, sum_q_len_minus1: int,
-                       branches: int, ws_left: int, ws_right: int) -> float:
-    """
-    Cost(N'_{branches}) = w_s * W_S * Storage + w_q * W_Q * Query
-    Storage(N') = |omega|*(branches) + 32|omega| + 32*(branches)  (33)
-    Query(N')   = eps|W| + alfa*sum(|q|-1)*branches + beta*branches + gama*(WS_L + WS_R) (34)
-
-    其中 WS_L/WS_R 是子树状态下“被访问分支数”的和（DP 的 WS）。
-    """
+# Eq. (22): evaluate the nonlinear Mq for each routed query separately.
+def _cost_updated_node(omega, branches, query_ids, query_lengths, access_counts):
     storage = omega * branches + 32 * omega + 32 * branches
-    query = (param.EPSILON * WN
-             + param.ALFA * sum_q_len_minus1 * branches
-             + param.BETA * WN * branches
-             + param.GAMA * (ws_left + ws_right))
+    query_ids = np.asarray(query_ids, dtype=np.int64)
+    lengths = query_lengths[query_ids].astype(float)
+    results = np.array([access_counts.get(int(q), 0) for q in query_ids], dtype=float)
+    valid = lengths > 0
+    query = np.asarray(param.predict_query(branches, lengths[valid], results[valid])).sum()
+    return float(param.weighted_cost(storage, query))
 
-    return float(param.w_s * param.W_S * storage + param.w_q * param.W_Q * query)
 
 def _print_dp_state(st, chosen_k: int, indent: str = ""):
     K = len(st.CT) - 1  # 你说是 1-indexed
@@ -57,6 +50,7 @@ class DPState:
     CT: List[float]
     WS: List[int]
     PT: List[Tuple[int, int]]
+    RV: List[Dict[int, int]]  # per-query accessed-branch counts, Eq. (22)
 
 
 @dataclass
@@ -74,19 +68,10 @@ class NewNode:
 
 # ========== main DP + materialization ==========
 class TreeNodeBreaker:
-    """
-    Implements Algorithm 2 (Break redundant nodes) using the in-memory meta produced by TreeBuilder.
+    """Algorithm 4: one retained configuration per fanout, not a global optimum.
 
-    Assumptions:
-    - builder._meta[node_id].data contains:
-        omega, WN, sum_q_len_minus1
-      and for internal nodes:
-        children_ids.npy exists and equals [left_id, right_id]
-      and leaf nodes have leaf bitmap files already written.
-
-    Output:
-    - Writes a new multi-branch tree json + internal node bitmaps to out_dir_break
-    - Leaves are copied (or referenced) from the original out_dir.
+    The builder provides exact routed query IDs and in-memory leaf payloads.
+    Per-query RV records are required because Mq is nonlinear. Output is tree.bin.
     """
     def __init__(self, builder, out_dir_break: str, copy_leaves: bool = True):
         self.builder = builder
@@ -129,69 +114,40 @@ class TreeNodeBreaker:
 
     # -------- DPMinimalCostTree (postorder) --------
     def _dp_compute(self, node_id: int) -> DPState:
-        if node_id in self._dp:
-            return self._dp[node_id]
-
+        if node_id in self._dp: return self._dp[node_id]
         m = self.meta[node_id]
-        omega, WN, sum_q_len_minus1 = self._node_stats(node_id)
-
+        query_ids = self.builder._node_queries[node_id]
+        retained_rv = {int(q): 1 for q in query_ids}
         if m.is_leaf:
-            # Boundary: CT[1]=Cost(N), WS[1]=|W_N|  (Algorithm 2 line 6-7)
-            # 这里 Cost(N) 你已经在 build_tree 时用 cost model 决定是否 split；
-            # 为 DP 我们用 meta.cost（你 TreeBuilder 里保存了 split.cost_parent 或 0）
-            # 更稳妥：用 meta.cost，如果 leaf cost=0 你可以把它改成 split.cost_parent
-            leaf_cost = float(m.cost) if (m.cost is not None) else 0.0
-
-            CT = [float("inf"), leaf_cost]
-            WS = [0, WN]  # leaf: each query accesses exactly 1 branch => sum branch hits = |W_N|
-            PT = [(0, 0), (1, 1)]
-            st = DPState(CT=CT, WS=WS, PT=PT)
-            self._dp[node_id] = st
-            return st
-
-        left_id, right_id = self._children_of(node_id)  # type: ignore
-        stL = self._dp_compute(left_id)
-        stR = self._dp_compute(right_id)
-
-        # DP size: possible branch counts = [1..(maxL+maxR)]
-        maxL = len(stL.CT) - 1
-        maxR = len(stR.CT) - 1
-        maxK = maxL + maxR
-
-        CT = [float("inf")] * (maxK + 1)
-        WS = [0] * (maxK + 1)
-        PT = [(0, 0)] * (maxK + 1)
-
-        # enumerate all (l,r) combinations (Algorithm 2 line 11-21)
-        for l in range(1, maxL + 1):
-            for r in range(1, maxR + 1):
-                # break case: k = l + r, CT[k] = CT_L[l]+CT_R[r]
+            state = DPState(CT=[float('inf'), float(m.cost)], WS=[0, len(query_ids)],
+                            PT=[(0, 0), (0, 0)], RV=[{}, retained_rv])
+            self._dp[node_id] = state
+            return state
+        left_id, right_id = self._children_of(node_id)
+        left = self._dp_compute(left_id); right = self._dp_compute(right_id)
+        max_k = len(left.CT) + len(right.CT) - 2
+        CT = [float('inf')] * (max_k + 1)
+        WS = [0] * (max_k + 1); PT = [(0, 0)] * (max_k + 1)
+        RV = [{} for _ in range(max_k + 1)]
+        for l in range(1, len(left.CT)):
+            for r in range(1, len(right.CT)):
+                if not np.isfinite(left.CT[l] + right.CT[r]): continue
+                merged = dict(left.RV[l])
+                for q, count in right.RV[r].items(): merged[q] = merged.get(q, 0) + count
+                child_cost = left.CT[l] + right.CT[r]
                 k = l + r
-                cost_br = stL.CT[l] + stR.CT[r]
-                if cost_br < CT[k]:
-                    CT[k] = cost_br
-                    WS[k] = stL.WS[l] + stR.WS[r]
-                    PT[k] = (l, r)
-
-                # retain case: CT[1] = min_{l,r} CT_L[l]+CT_R[r]+Cost(N'_{l+r})
-                # Cost(N'_{l+r}) uses Eq.(33)(34)
-                cost_upd = _cost_updated_node(
-                    omega=omega,
-                    WN=WN,
-                    sum_q_len_minus1=sum_q_len_minus1,
-                    branches=(l + r),
-                    ws_left=stL.WS[l],
-                    ws_right=stR.WS[r],
-                )
-                cost_keep = stL.CT[l] + stR.CT[r] + cost_upd
-                if cost_keep < CT[1]:
-                    CT[1] = cost_keep
-                    WS[1] = WN  # Algorithm 2 line 16 sets WS_N[1]=|W_N|
-                    PT[1] = (l, r)
-
-        st = DPState(CT=CT, WS=WS, PT=PT)
-        self._dp[node_id] = st
-        return st
+                if child_cost < CT[k]:
+                    CT[k] = child_cost; PT[k] = (l, r)
+                    RV[k] = merged; WS[k] = sum(merged.values())
+                updated = _cost_updated_node(
+                    self.meta[node_id].data['omega'], k, query_ids,
+                    self.builder.build_context.query_lengths, merged)
+                if child_cost + updated < CT[1]:
+                    CT[1] = child_cost + updated; PT[1] = (l, r)
+                    RV[1] = retained_rv; WS[1] = len(query_ids)
+        state = DPState(CT=CT, WS=WS, PT=PT, RV=RV)
+        self._dp[node_id] = state
+        return state
 
 
     # -------- DPBackTrace + materialize into multi-branch tree --------

@@ -1,4 +1,7 @@
-# model/loss.py
+"""Legacy GCN surrogate for explicit experimental modes, not the paper BBC.
+
+The default learned path uses Eqs. (10)-(19) in model.paper_bbc.
+"""
 import torch
 import parameter as param
 from model.fixed_sparse import fixed_sparse_mm

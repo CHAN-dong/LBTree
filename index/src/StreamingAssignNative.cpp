@@ -45,7 +45,7 @@ extern "C" EXPORT int lbtree_stream(
         for(I t=qp[q];t<qp[q+1];++t) missing+=!s.keywords[qi[t]];
         s.missing[q]=missing;
       }
-      for(I j=0;j<qsize;++j) s.active[qs[j]]=1;
+      for(I q=0;q<m;++q) s.active[q]=(lengths[q]>0 && s.missing[q]==0);
       for(I q=0;q<m;++q) if(s.active[q]) {++s.count;s.sum+=double(qm1[q]);}
     };
     initialize(left,sl,nl,ql,ml,0);initialize(right,sr,nr,qr,mr,1);
@@ -72,7 +72,8 @@ extern "C" EXPORT int lbtree_stream(
       for(I q:touched) decrements[q]=0;
       double added=epsilon*double(d.queries.size())
           +double(s.objects+1)*(alpha*sum_new+beta*double(d.queries.size()))+gamma*double(new_hits);
-      d.cost=ws*storage+wq*(existing+added);
+      // Eq. (20): each newly accessed child adds one parent result.
+      d.cost=ws*storage+wq*(existing+added+gamma*double(d.queries.size()));
       return d;
     };
     auto update=[&](State& s,const Delta& d) {

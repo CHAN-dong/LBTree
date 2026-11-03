@@ -61,3 +61,5 @@ target_link_libraries(lbtree_workload_bench PRIVATE nlohmann_json::nlohmann_json
 #   index/src/bitmap_sample_experiment.cpp
 #   index/src/BitmapIndexBaseline.cpp
 # )
+
+add_executable(lbtree_calibrate benchmarks/calibrate.cpp)

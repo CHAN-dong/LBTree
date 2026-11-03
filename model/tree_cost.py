@@ -1,3 +1,5 @@
+# Legacy experiment utility; not used by the default paper construction path.
+# See model/query_latency.py and benchmarks/train_query_model.py for Eq. (2).
 # model/tree_cost.py
 from __future__ import annotations
 from typing import Dict, Any, Tuple
@@ -88,7 +90,7 @@ def node_cost_from_indices(A_ow_all: csr_matrix, A_qw_all: csr_matrix,
     storage = omega * branches + 32 * omega + 32 * branches
     query = (param.EPSILON * WN
              + param.ALFA * sum_qm1 * branches
-             + param.BETA * branches
+             + param.BETA * WN * branches
              + param.GAMA * int(sum_ws))
 
     return float(param.w_s * param.W_S * storage + param.w_q * param.W_Q * query)
@@ -120,7 +122,7 @@ def tree_cost_from_builder_meta(builder,
             storage = omega * O + 32 * omega + 32 * O
             query = (param.EPSILON * WN
                      + param.ALFA * sum_qm1 * O
-                     + param.BETA * O
+                     + param.BETA * WN * O
                      + param.GAMA * WN)
             return float(param.w_s * param.W_S * storage + param.w_q * param.W_Q * query)
 
@@ -138,7 +140,7 @@ def tree_cost_from_builder_meta(builder,
         storage = omega * branches + 32 * omega + 32 * branches
         query = (param.EPSILON * WN
                  + param.ALFA * sum_qm1 * branches
-                 + param.BETA * branches
+                 + param.BETA * WN * branches
                  + param.GAMA * WN)
         node_cost = float(param.w_s * param.W_S * storage + param.w_q * param.W_Q * query)
 
@@ -180,7 +182,7 @@ def tree_cost_from_treejson(tree_dir: str,
             storage = omega * O + 32 * omega + 32 * O
             query = (param.EPSILON * WN
                      + param.ALFA * sum_qm1 * O
-                     + param.BETA * O
+                     + param.BETA * WN * O
                      + param.GAMA * WN)
             return float(param.w_s * param.W_S * storage + param.w_q * param.W_Q * query)
 
@@ -198,7 +200,7 @@ def tree_cost_from_treejson(tree_dir: str,
         storage = omega * branches + 32 * omega + 32 * branches
         query = (param.EPSILON * WN
                  + param.ALFA * sum_qm1 * branches
-                 + param.BETA * branches
+                 + param.BETA * WN * branches
                  + param.GAMA * WN)
         node_cost = float(param.w_s * param.W_S * storage + param.w_q * param.W_Q * query)
 

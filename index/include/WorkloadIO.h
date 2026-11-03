@@ -22,7 +22,7 @@ struct QueryStat {
 std::vector<std::vector<int>> load_workload_tokens_to_ids(
     const std::string& csv_path,
     const std::unordered_map<std::string, int>& vocab,
-    bool drop_unknown_tokens = true,
+    bool drop_unknown_tokens = false,
     bool drop_empty_queries = true,
     QueryStat* optional_stat = nullptr
 );
