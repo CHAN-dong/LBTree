@@ -14,13 +14,14 @@
 using Clock=std::chrono::steady_clock;
 using json=nlohmann::json;
 int warmup_rounds=10, measurement_rounds=30;
+uint32_t query_order_seed=42;
 double ns(Clock::duration d) { return std::chrono::duration<double,std::nano>(d).count(); }
 double quantile(std::vector<double> x,double p) { std::sort(x.begin(),x.end()); return x[static_cast<size_t>(p*(x.size()-1))]; }
 template<class Index> json measure(const Index& index,const std::vector<std::vector<int>>& queries) {
   uint64_t checksum=0;
   for(int r=0;r<warmup_rounds;++r) for(auto& q:queries) checksum+=index.query(q).size();
   std::vector<size_t> order(queries.size()); std::iota(order.begin(),order.end(),0);
-  std::mt19937 rng(42);
+  std::mt19937 rng(query_order_seed);
   std::vector<double> samples,round_averages;
   // Keep result materialization and destruction inside the timed query call.
   for(int round=0;round<measurement_rounds;++round) {
@@ -43,10 +44,28 @@ struct TreeView {
   std::vector<int64_t> query(const std::vector<int>& q) const { return tree.query(q,nullptr); }
 };
 int main(int argc,char** argv) {
-  const bool use_expected=argc>=3 && std::string(argv[2])=="--expected";
-  const bool split_stats=argc==4 && std::string(argv[3])=="--split-stats";
-  if(argc!=2 && !use_expected) { std::cerr<<"Usage: lbtree_workload_bench EXPERIMENT_DIRECTORY [--expected]\n";return 1; }
+  if(argc<2) { std::cerr<<"Usage: lbtree_workload_bench DIRECTORY [--expected] [--split-stats] [--warmup N] [--rounds N] [--order-seed N]\n";return 1; }
+  bool use_expected=false, split_stats=false;
+  int explicit_warmup=-1, explicit_rounds=-1;
+  for(int i=2;i<argc;++i) {
+    const std::string option=argv[i];
+    if(option=="--expected") use_expected=true;
+    else if(option=="--split-stats") split_stats=true;
+    else if((option=="--warmup" || option=="--rounds" || option=="--order-seed") && i+1<argc) {
+      std::string value=argv[++i];
+      if(value.empty() || value.find_first_not_of("0123456789")!=std::string::npos)
+        throw std::runtime_error("Expected nonnegative integer for "+option);
+      auto number=std::stoull(value);
+      if(number>2147483647ULL) throw std::runtime_error("Option out of range: "+option);
+      if(option=="--warmup") explicit_warmup=static_cast<int>(number);
+      else if(option=="--rounds") explicit_rounds=static_cast<int>(number);
+      else query_order_seed=static_cast<uint32_t>(number);
+    } else throw std::runtime_error("Unknown or incomplete option: "+option);
+  }
   if(use_expected) {warmup_rounds=2;measurement_rounds=5;}
+  if(explicit_warmup>=0) warmup_rounds=explicit_warmup;
+  if(explicit_rounds>=0) measurement_rounds=explicit_rounds;
+  if(measurement_rounds<1) throw std::runtime_error("--rounds must be positive");
   std::filesystem::path directory=argv[1];
   auto vocab=load_vocab_json((directory/"vocab.json").string());
   QueryStat io;
@@ -54,6 +73,7 @@ int main(int argc,char** argv) {
   if(queries.empty()||io.unknown_tokens) throw std::runtime_error("Missing queries or vocabulary mismatch");
   json report;
   report["queries"]=queries.size(); report["warmup_rounds"]=warmup_rounds; report["measurement_rounds"]=measurement_rounds;
+  report["query_order_seed"]=query_order_seed;
   report["timer_includes"]="AND bitmap traversal, result materialization and destruction; excludes parsing, IO and per-node timers";
   std::vector<double> clock_samples;
   for(int i=0;i<10000;++i) { auto t=Clock::now();clock_samples.push_back(ns(Clock::now()-t)); }
