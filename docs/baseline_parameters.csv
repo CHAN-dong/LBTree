@@ -1,0 +1,7 @@
+﻿name,default,grid,implementation,fidelity,source,commit,implementation_details
+Bitmap,{},{},flat bitmap,reference,index/src/BitmapIndexBaseline.cpp,,Flat bitmap AND with complete result enumeration; measured and analytic records use distinct measurement kinds.
+Roaring,"{""chunk_bits"": 16, ""runOptimize"": true}",{},official CRoaring,official_library,https://github.com/RoaringBitmap/CRoaring,c9193d3d37243635ab54f45c321ef6513202b79b,16-bit chunks; runOptimize enabled; portable serialized payload accounting.
+TEB,"{""rank_block_bits"": 512}","{""rank_block_bits"": [128, 256, 512, 1024]}",author reader/rank/skip + local sparse BFS constructor,adapted_builder,https://github.com/harald-lang/tree-encoded-bitmaps,a4ab056f2cefa7843b27c736833b08977b56649c,"Author serialized reader, rank and skip iterator; local sparse BFS construction profile."
+BigSet,"{""k"": 16, ""c"": 2}","{""k"": [12, 14, 16], ""c"": [1, 2, 4]}",local signature bitmap and sparse physical buckets,local_variant,baseline_compare/src/suite_bench.cpp,,"Signature bitmap, sparse physical buckets and posting-list cutoff 32; declared local parameter grid."
+MILC,"{""ell"": 160}","{""ell"": [80, 160, 320]}",local bounded partition DP + offset packing,core_only,baseline_compare/src/suite_bench.cpp,,"Core profile: bounded partition DP, base-relative offset packing and scalar membership."
+Bitlist,"{""B"": 32}","{""B"": [8, 16, 32, 64, 128]}",local fixed block pair lists,base_only,baseline_compare/src/suite_bench.cpp,,"Base profile: fixed-width block pairs and bitmap AND, preserving input object order."

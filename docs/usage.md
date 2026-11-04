@@ -24,6 +24,7 @@ as an impossible keyword, giving an empty answer. Empty evaluation lines are ski
 ```bash
 export LBTREE_QUERY_MODEL="$PWD/build-local/mq.pt"
 python test.py --objects /path/objects.csv --workload /path/train_queries.csv \
+  --eval-workload /path/eval_queries.csv --profile paper_disjoint \
   --out tree_out/custom --tradeoff 0.5 --epochs 300 --lr 0.0005 --threads 1
 ./build-local/lbtree tree_out/custom/vocab.json /path/objects.csv \
   /path/eval_queries.csv tree_out/custom/binary tree_out/custom/fanout --verify
@@ -55,8 +56,10 @@ estimate of components in MiB (bytes / 1024²), not process RSS or serialized si
 
 ## Dataset protocols in Section VII-A
 
-The following descriptions do not imply prepared data or a full experiment
-harness is included:
+The following table specifies the paper-target dataset profile. For other
+snapshots, record actual counts and the corresponding generator in
+[`configs/reproducibility.json`](../configs/reproducibility.json). The
+[experiment guide](reproducibility.md) describes profile selection and checks.
 
 | Dataset | Objects | Keywords | Keyword–object pairs | Construction / evaluation queries |
 |---|---:|---:|---:|---|
@@ -65,6 +68,39 @@ harness is included:
 | DBLP | 7,772,904 | 773,157 | 82,308,835 | 10,000 / 10,000 disjoint; 2–4 title co-occurring terms, length probabilities 0.5/0.3/0.2, sampling proportional to `f(q)^0.5` |
 | SYN | 10,000,000 | 10,000 | 1,000,000,000 | 10,000 / 10,000 disjoint; 50 topics of 200 terms; each object has 90 within-topic and 10 outside-topic terms; query topics follow Zipf exponent 1.1, with 2–10 distinct within-topic terms |
 
-The paper reports single-threaded Linux experiments on an Intel Xeon Platinum
-8369C at 2.90 GHz with 512 GB RAM. This is not the scale or hardware of the
-repository's local validation. See [the audit](paper_alignment.md) for limitations.
+The paper's environment is single-threaded Linux on an Intel Xeon Platinum
+8369C at 2.90 GHz with 512 GB RAM. Record the hardware and software of each run
+in its manifest when evaluating another environment.
+
+## Reproducible construction records
+
+`test.py` requires `--eval-workload` so that the split can be checked before
+training. The default `paper_disjoint` profile compares sorted keyword sets,
+rejecting even a reordered duplicate across train/test. `historical_shared`
+requires identical ordered workloads and labels the result as in-workload.
+`--validation-workload` must be disjoint from both. Without validation, use only
+the predeclared defaults or report the whole parameter sweep; do not select
+parameters by evaluation latency.
+
+`--dataset NAME --enforce-paper-counts` also rejects deviations from the paper
+target object, active-keyword, pair and query counts. Ordinary runs allow
+different scales but record the differences in `run_manifest.json`. A fresh
+output directory is required to preserve previous manifests and indexes.
+Input counts are streamed once in preflight; vocabulary and query sets are kept
+in memory for validation. The current text entry point rejects blank objects,
+so a historical binary dataset containing empty objects must use a separately
+documented adapter rather than silently deleting them or shifting IDs.
+
+Model/NumPy/Python seed 42 is the default, and new repeated builds use 42/43/44.
+These are the explicit seed settings of the release.
+The historical object fractions are independently sampled without replacement
+using `default_rng(42)` and sorted source IDs; they are not nested by construction.
+Current `paper_bbc.py` performs every configured epoch at every split. The
+`training_patience=8` argument retained in legacy modules does not early-stop this
+paper path; it affected earlier GNN reruns.
+
+Use the workload benchmark with `--warmup 2 --rounds 5 --order-seed 42` when
+comparing with the historical baseline harness. These options are independent
+of `--expected`; never silently compare its previous 2/5 setting against the
+10/30 default or against `lbtree`'s single timed pass. Exported tree directories
+must be evaluated with the checked evaluation workload, not the training file.

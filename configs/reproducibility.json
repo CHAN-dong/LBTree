@@ -1,0 +1,290 @@
+{
+  "schema_version": 1,
+  "github_base_commit": "aa61e909362d9dbe104c96ee9c5777e60ea0adc9",
+  "paper_reference": "LBTree_icde.pdf",
+  "paper_sha256": "e83dc7a61e6b8dbf4cdc83a78a7feb15ba263a1b80253835f573aaf852c8b802",
+  "default_profile": "paper_disjoint",
+  "profiles": {
+    "paper_disjoint": {
+      "workload_policy": "disjoint",
+      "status": "paper_target",
+      "description": "Construction and evaluation use disjoint normalized keyword sets."
+    },
+    "historical_shared": {
+      "workload_policy": "shared",
+      "status": "historical_inputs_only",
+      "description": "Construction and evaluation use the identical ordered workload; records the workload-fitting protocol."
+    }
+  },
+  "training": {
+    "partition_method": "learned",
+    "cost_mode": "mlp",
+    "epochs": 300,
+    "learning_rate": 0.0005,
+    "lambda_value": 0.5,
+    "cpu_threads": 1,
+    "default_device": "cpu",
+    "node_sample": "min(n, max(2, ceil(n/100)))",
+    "sample_replacement": false,
+    "fixed_sample": null,
+    "sample_cap": null,
+    "early_stopping": false,
+    "legacy_nonroot_patience": 8,
+    "max_depth_safeguard": 100
+  },
+  "seeds": {
+    "model_default": 42,
+    "model_repetitions": [
+      42,
+      43,
+      44
+    ],
+    "object_subset": 42,
+    "query_order": 42,
+    "synthetic_objects": 42,
+    "synthetic_queries": 43,
+    "paper_split_proposed": 42,
+    "note": "Explicit release seeds; record the effective seed with each run."
+  },
+  "subsets": {
+    "fractions": [
+      0.2,
+      0.4,
+      0.6,
+      0.8,
+      1.0
+    ],
+    "rule": "sort(default_rng(42).choice(n,floor(n*fraction),replace=False))",
+    "nested": false,
+    "remapping": "same source_object_ids for every method within a fraction; dense local IDs"
+  },
+  "measurement": {
+    "warmup_rounds": 2,
+    "measured_rounds": 5,
+    "query_order_seed": 42,
+    "model_build_repetitions": [
+      42,
+      43,
+      44
+    ],
+    "timing": "materialize and destroy complete answer IDs; no input parsing, verification, logging or IO",
+    "correctness": "compare full sorted IDs to independent postings AND before timing",
+    "size": "report serialized bytes, logical payload bytes and peak RSS separately; bytes/1e6=MB, bytes/2**20=MiB",
+    "estimated_rows": "never combine with measured latency/build speedup"
+  },
+  "parameter_selection": {
+    "default": "fixed_defaults_no_selection",
+    "tuning": "separate combination-disjoint validation workload only",
+    "validation_count": null,
+    "test_set_selection_forbidden": true,
+    "plot_sweeps": "all configurations, no best-on-test winner"
+  },
+  "datasets": {
+    "DBLP": {
+      "paper_claim": {
+        "objects": 7772904,
+        "active_keywords": 773157,
+        "keyword_object_pairs": 82308835,
+        "construction_queries": 10000,
+        "evaluation_queries": 10000,
+        "generator": "2-4 title-co-occurring terms; length probabilities 0.5/0.3/0.2; weight f(q)^0.5"
+      },
+      "historical_shared": {
+        "objects": 7175646,
+        "active_keywords": 604212,
+        "vocabulary_columns": 604212,
+        "keyword_object_pairs": 74573545,
+        "construction_queries": 20000,
+        "evaluation_queries": 20000,
+        "workload_sha256": "db1816c3b6b03280c792bad86a7e97a601756269a9b1cbe30992f6fe2e2ab4f3",
+        "source_data_sha256": "0589925b82895960b2290758cece398f8b684a8708e069655692a9f7f9422457",
+        "nonempty_queries": 4957,
+        "generator": "Ten reconstructed CS keyword groups, 2000 unique queries each, length uniform 2..10; frequency-weighted terms without replacement. All 20000 rows used for both construction and evaluation.",
+        "evidence": "experiment/reproduction/data/DBLP_100/metadata.json"
+      },
+      "preprocessing": "lowercase [a-z0-9]+; unique tokens per object/query; source order retained"
+    },
+    "MARCO": {
+      "paper_claim": {
+        "objects": 8841823,
+        "active_keywords": 1004269,
+        "keyword_object_pairs": 118760684,
+        "construction_queries": 10000,
+        "evaluation_queries": 10000,
+        "generator": "10000 construction and 10000 evaluation queries from 1010916 available records"
+      },
+      "historical_shared": {
+        "objects": 8841823,
+        "active_keywords": 1471950,
+        "vocabulary_columns": 1471960,
+        "keyword_object_pairs": 356257866,
+        "construction_queries": 1000,
+        "evaluation_queries": 1000,
+        "workload_sha256": "dc7526ea33bc1ac1187b65eb05257bf8b51bd9d63144bb67704a376db4e37d0c",
+        "source_data_sha256": "c9178f6b75ede45bd83ab3caa60a93b4a7f4b7dacac93f1489e082e939543feb",
+        "nonempty_queries": 348,
+        "generator": "1000 query IDs selected without replacement from sorted available IDs; seed 42; normalized lowercase [a-z0-9]+ keyword sets; the same 1000 used for construction and evaluation.",
+        "evidence": "experiment/reproduction/data/MARCO_100/metadata.json"
+      },
+      "preprocessing": "lowercase [a-z0-9]+; unique tokens per object/query; source order retained"
+    },
+    "SciDocs": {
+      "paper_claim": {
+        "objects": 25657,
+        "active_keywords": 55104,
+        "keyword_object_pairs": 961358,
+        "construction_queries": 1000,
+        "evaluation_queries": 1000,
+        "generator": "2000 distinct co-occurring conjunctions; 1000 construction and 1000 evaluation"
+      },
+      "historical_shared": {
+        "objects": 25659,
+        "active_keywords": 47680,
+        "vocabulary_columns": 47808,
+        "keyword_object_pairs": 968310,
+        "construction_queries": 1000,
+        "evaluation_queries": 1000,
+        "workload_sha256": "0b6870a2e8431066400d7bc1e358bbaa9d290d186f20dad2a4fda9c07a5ad790",
+        "source_data_sha256": "fe0a3482b956f1fd253c1688acaaaad792d4c4443f157463b89f8ebba086b7ff",
+        "nonempty_queries": 197,
+        "generator": "1000 existing ir_datasets_workload.csv queries, not newly generated 2000 conjunctions; same rows for construction and evaluation.",
+        "evidence": "experiment/reproduction/data/SciDocs_100/metadata.json"
+      },
+      "preprocessing": "lowercase [a-z0-9]+; unique tokens per object/query; source order retained"
+    },
+    "SYN": {
+      "paper_claim": {
+        "objects": 10000000,
+        "active_keywords": 10000,
+        "keyword_object_pairs": 1000000000,
+        "construction_queries": 10000,
+        "evaluation_queries": 10000,
+        "generator": "50 topics of 200 terms; 90 distinct within-topic + 10 outside-topic terms/object; query topic Zipf(1.1); 2..10 distinct terms; 10000/10000 disjoint"
+      },
+      "historical_shared": {
+        "objects": 10000000,
+        "active_keywords": 10000,
+        "vocabulary_columns": 10000,
+        "keyword_object_pairs": 1000000000,
+        "construction_queries": 1000,
+        "evaluation_queries": 1000,
+        "workload_sha256": "67a0db00f88a6e9511bfe00228e13b4dde8e0695235be757db1afe6890096f3c",
+        "source_data_sha256": "496ae6865146edafd1b0be5f958404e5adaabde453898d50869f1b405d324cda",
+        "nonempty_queries": 247,
+        "generator": "100 uniform distinct terms/object; object seed 42; 1000 queries, length uniform 2..10, rounded Normal(5000,100) term IDs with rejection outside vocabulary and within-query deduplication; query seed 43.",
+        "evidence": "experiment/reproduction/data/SYN_100/metadata.json"
+      },
+      "preprocessing": "lowercase [a-z0-9]+; unique tokens per object/query; source order retained"
+    }
+  },
+  "baselines": [
+    {
+      "name": "Bitmap",
+      "default": {},
+      "grid": {},
+      "implementation": "flat bitmap",
+      "source": "index/src/BitmapIndexBaseline.cpp",
+      "fidelity": "reference",
+      "command_adapter": "lbtree_workload_bench DIRECTORY --warmup 2 --rounds 5 --order-seed 42 (without --expected)",
+      "implementation_details": "Flat bitmap AND with complete result enumeration; measured and analytic records use distinct measurement kinds."
+    },
+    {
+      "name": "Roaring",
+      "default": {
+        "chunk_bits": 16,
+        "runOptimize": true
+      },
+      "grid": {},
+      "implementation": "official CRoaring",
+      "source": "https://github.com/RoaringBitmap/CRoaring",
+      "commit": "c9193d3d37243635ab54f45c321ef6513202b79b",
+      "fidelity": "official_library",
+      "command_adapter": "suite_author_{rank} DATA_DIR METHOD OUTPUT_JSON parameter k c",
+      "implementation_details": "16-bit chunks; runOptimize enabled; portable serialized payload accounting."
+    },
+    {
+      "name": "TEB",
+      "default": {
+        "rank_block_bits": 512
+      },
+      "grid": {
+        "rank_block_bits": [
+          128,
+          256,
+          512,
+          1024
+        ]
+      },
+      "implementation": "author reader/rank/skip + local sparse BFS constructor",
+      "source": "https://github.com/harald-lang/tree-encoded-bitmaps",
+      "commit": "a4ab056f2cefa7843b27c736833b08977b56649c",
+      "dtl_commit": "bae83545a091555e48b5495669c7adcb99fd2047",
+      "fidelity": "adapted_builder",
+      "command_adapter": "suite_author_{rank} DATA_DIR METHOD OUTPUT_JSON parameter k c",
+      "implementation_details": "Author serialized reader, rank and skip iterator; local sparse BFS construction profile."
+    },
+    {
+      "name": "BigSet",
+      "default": {
+        "k": 16,
+        "c": 2
+      },
+      "grid": {
+        "k": [
+          12,
+          14,
+          16
+        ],
+        "c": [
+          1,
+          2,
+          4
+        ]
+      },
+      "implementation": "local signature bitmap and sparse physical buckets",
+      "source": "baseline_compare/src/suite_bench.cpp",
+      "fidelity": "local_variant",
+      "command_adapter": "suite_author_{rank} DATA_DIR METHOD OUTPUT_JSON parameter k c",
+      "implementation_details": "Signature bitmap, sparse physical buckets and posting-list cutoff 32; declared local parameter grid."
+    },
+    {
+      "name": "MILC",
+      "default": {
+        "ell": 160
+      },
+      "grid": {
+        "ell": [
+          80,
+          160,
+          320
+        ]
+      },
+      "implementation": "local bounded partition DP + offset packing",
+      "source": "baseline_compare/src/suite_bench.cpp",
+      "fidelity": "core_only",
+      "command_adapter": "suite_author_{rank} DATA_DIR METHOD OUTPUT_JSON parameter k c",
+      "implementation_details": "Core profile: bounded partition DP, base-relative offset packing and scalar membership."
+    },
+    {
+      "name": "Bitlist",
+      "default": {
+        "B": 32
+      },
+      "grid": {
+        "B": [
+          8,
+          16,
+          32,
+          64,
+          128
+        ]
+      },
+      "implementation": "local fixed block pair lists",
+      "source": "baseline_compare/src/suite_bench.cpp",
+      "fidelity": "base_only",
+      "command_adapter": "suite_author_{rank} DATA_DIR METHOD OUTPUT_JSON parameter k c",
+      "implementation_details": "Base profile: fixed-width block pairs and bitmap AND, preserving input object order."
+    }
+  ],
+  "protocol_version": "2026-11-04"
+}
