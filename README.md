@@ -1,4 +1,4 @@
-# LBTree: A Learned Index for Conjunctive Keyword Queries
+# Learned Indexing for Conjunctive Keyword Queries
 
 Static construction and evaluation of LBTree-B and LBTree, aligned with Sections
 II–V of **LBTree: A Learned Index for Conjunctive Keyword Queries**, revision
