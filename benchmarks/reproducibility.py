@@ -87,6 +87,10 @@ def inspect(objects, train, evaluation, *, dataset=None, profile='paper_disjoint
     report['count_mismatches'] = []
     if dataset:
         spec = cfg['datasets'][dataset]
+        if profile == 'historical_shared' and 'historical_shared' not in spec:
+            raise ValueError(f'{dataset}: no historical_shared corpus profile is registered')
+        if dataset == 'AOL' and any(len(row) < 2 for row in train_rows + eval_rows):
+            raise ValueError('AOL queries require at least two distinct keywords')
         target = spec['paper_claim'] if profile == 'paper_disjoint' else spec['historical_shared']
         expected = {k: target[k] for k in ('objects', 'keyword_object_pairs', 'construction_queries', 'evaluation_queries')}
         expected['active_keywords'] = target['active_keywords']
@@ -107,7 +111,7 @@ def main():
     p.add_argument('--train', required=True)
     p.add_argument('--evaluation', required=True)
     p.add_argument('--validation')
-    p.add_argument('--dataset', choices=['DBLP', 'MARCO', 'SciDocs', 'SYN'])
+    p.add_argument('--dataset', choices=['DBLP', 'MARCO', 'SciDocs', 'SYN', 'AOL'])
     p.add_argument('--profile', choices=['paper_disjoint', 'historical_shared'], default='paper_disjoint')
     p.add_argument('--config', type=Path, default=DEFAULT_CONFIG)
     p.add_argument('--enforce-counts', action='store_true')

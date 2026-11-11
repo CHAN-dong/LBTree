@@ -29,7 +29,7 @@ def main():
     parser.add_argument('--eval-workload', required=True, help='evaluation queries; checked before construction')
     parser.add_argument('--validation-workload', help='separate workload for parameter selection')
     parser.add_argument('--profile', choices=['paper_disjoint', 'historical_shared'], default=protocol['default_profile'])
-    parser.add_argument('--dataset', choices=['DBLP','MARCO','SciDocs','SYN'])
+    parser.add_argument('--dataset', choices=['DBLP','MARCO','SciDocs','SYN','AOL'])
     parser.add_argument('--protocol', type=Path, default=DEFAULT_CONFIG)
     parser.add_argument('--enforce-paper-counts', action='store_true', help='reject mismatched counts for --dataset')
     parser.add_argument('--out', required=True, type=Path)

@@ -7,6 +7,20 @@ from reproducibility import inspect, workload_stats, DEFAULT_CONFIG
 
 
 class ProtocolChecks(unittest.TestCase):
+    def test_aol_profile_and_query_length(self):
+        cfg = json.loads(DEFAULT_CONFIG.read_text())
+        a = cfg['datasets']['AOL']
+        self.assertEqual(a['paper_claim']['objects'], 1467565)
+        self.assertEqual(a['query_window']['end_exclusive'], '2006-03-16')
+        self.assertEqual(a['paper_claim']['construction_queries'], 10000)
+        with tempfile.TemporaryDirectory() as td:
+            paths = self.fixture(td)
+            with self.assertRaisesRegex(ValueError, 'at least two'):
+                inspect(*paths, dataset='AOL')
+            with self.assertRaisesRegex(ValueError, 'no historical_shared'):
+                paths[2].write_text(paths[1].read_text())
+                inspect(*paths, dataset='AOL', profile='historical_shared')
+
     def test_disjoint_rejects_reordered_duplicate(self):
         from reproducibility import read_sets
         with tempfile.TemporaryDirectory() as td:

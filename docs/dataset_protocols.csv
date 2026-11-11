@@ -1,4 +1,4 @@
-﻿dataset,protocol,objects,active_keywords,keyword_object_pairs,construction_queries,evaluation_queries,generator
+dataset,protocol,objects,active_keywords,keyword_object_pairs,construction_queries,evaluation_queries,generator
 DBLP,paper_claim,7772904,773157,82308835,10000,10000,2-4 title-co-occurring terms; length probabilities 0.5/0.3/0.2; weight f(q)^0.5
 DBLP,historical_shared,7175646,604212,74573545,20000,20000,"Ten reconstructed CS keyword groups, 2000 unique queries each, length uniform 2..10; frequency-weighted terms without replacement. All 20000 rows used for both construction and evaluation."
 MARCO,paper_claim,8841823,1004269,118760684,10000,10000,10000 construction and 10000 evaluation queries from 1010916 available records
@@ -7,3 +7,4 @@ SciDocs,paper_claim,25657,55104,961358,1000,1000,2000 distinct co-occurring conj
 SciDocs,historical_shared,25659,47680,968310,1000,1000,"1000 existing ir_datasets_workload.csv queries, not newly generated 2000 conjunctions; same rows for construction and evaluation."
 SYN,paper_claim,10000000,10000,1000000000,10000,10000,50 topics of 200 terms; 90 distinct within-topic + 10 outside-topic terms/object; query topic Zipf(1.1); 2..10 distinct terms; 10000/10000 disjoint
 SYN,historical_shared,10000000,10000,1000000000,1000,1000,"100 uniform distinct terms/object; object seed 42; 1000 queries, length uniform 2..10, rounded Normal(5000,100) term IDs with rejection outside vocabulary and within-query deduplication; query seed 43."
+AOL,paper_claim,1467565,1253271,8954829,10000,10000,"Page-title keyword sets; sample 20000 queries containing at least two distinct keywords from March 1-15, 2006; 10000 construction and 10000 evaluation"

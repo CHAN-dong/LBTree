@@ -64,6 +64,7 @@ snapshots, record actual counts and the corresponding generator in
 | Dataset | Objects | Keywords | Keyword–object pairs | Construction / evaluation queries |
 |---|---:|---:|---:|---|
 | MARCO | 8,841,823 | 1,004,269 | 118,760,684 | 10,000 / 10,000 disjoint, sampled from 1,010,916 available queries |
+| AOL | 1,467,565 | 1,253,271 | 8,954,829 | 10,000 / 10,000; at least two distinct keywords; March 1-15, 2006 |
 | SciDocs | 25,657 | 55,104 | 961,358 | 1,000 / 1,000 from 2,000 distinct conjunctions sampled from document co-occurrences |
 | DBLP | 7,772,904 | 773,157 | 82,308,835 | 10,000 / 10,000 disjoint; 2–4 title co-occurring terms, length probabilities 0.5/0.3/0.2, sampling proportional to `f(q)^0.5` |
 | SYN | 10,000,000 | 10,000 | 1,000,000,000 | 10,000 / 10,000 disjoint; 50 topics of 200 terms; each object has 90 within-topic and 10 outside-topic terms; query topics follow Zipf exponent 1.1, with 2–10 distinct within-topic terms |

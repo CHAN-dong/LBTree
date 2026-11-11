@@ -1,7 +1,7 @@
 # Method-to-code mapping
 
 The static construction and query path follows Sections II–V of
-`LBTree_icde.pdf`. The table maps formulas and algorithms to their implementation.
+`Learned_Indexing_for_Conjunctive_Keyword_Queries (1).pdf`. The table maps formulas and algorithms to their implementation.
 
 | Paper definition | Code |
 |---|---|
@@ -17,7 +17,7 @@ The static construction and query path follows Sections II–V of
 | Strict cost-improving recursion, Algorithm 3 | `TreeBuilder`, trainable warm-started encoder and head |
 | Per-query RV and root state 1, Eq. (22), Algorithm 4 | `tree_node_break.py`, nonlinear Mq evaluated per query |
 
-The DP keeps one lowest-cost configuration per exposed branch count, as
+The approximate DP keeps one lowest-cost configuration per exposed branch count, as
 specified in Section V-B. Nonlinear Mq costs use the per-query RV access records.
 
 ## Execution profiles
@@ -33,3 +33,5 @@ partition choices retain their own explicit settings.
 
 See [the experiment guide](reproducibility.md) for datasets, seeds, sample rules,
 baseline implementation profiles and measurement settings.
+
+The minimum is over retained child states. Single-state compression has no global-optimality guarantee; no Pareto replacement is enabled by default.

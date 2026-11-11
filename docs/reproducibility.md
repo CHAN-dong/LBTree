@@ -78,3 +78,7 @@ Run `python benchmarks/check_reproducibility.py -v`,
 `python benchmarks/check_paper_contract.py -v`, and CTest after building.
 Small integration fixtures exercise protocol checks and query correctness;
 performance comparisons use the separately configured dataset runs.
+
+## Current paper profile
+
+The reference is `Learned_Indexing_for_Conjunctive_Keyword_Queries (1).pdf` (SHA-256 in the configuration). The five datasets include AOL; see [AOL preparation](aol.md). Storage-table fractions are 20%, 40%, 60% and 100%; the lambda sweep is 0, 0.25, 0.5, 0.75 and 1. Prior input profiles are retained as separate historical provenance. Paper-reported counts are targets, not a declaration that bundled fixtures reproduce the reported measurements.

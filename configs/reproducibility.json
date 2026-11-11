@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "github_base_commit": "aa61e909362d9dbe104c96ee9c5777e60ea0adc9",
-  "paper_reference": "LBTree_icde.pdf",
-  "paper_sha256": "e83dc7a61e6b8dbf4cdc83a78a7feb15ba263a1b80253835f573aaf852c8b802",
+  "paper_reference": "Learned_Indexing_for_Conjunctive_Keyword_Queries (1).pdf",
+  "paper_sha256": "1f24b7f51bd1ed3f7ce041dc53de844cb6797699c9eeb82f404a7cf1e3ba5f6c",
   "default_profile": "paper_disjoint",
   "profiles": {
     "paper_disjoint": {
@@ -51,7 +51,6 @@
       0.2,
       0.4,
       0.6,
-      0.8,
       1.0
     ],
     "rule": "sort(default_rng(42).choice(n,floor(n*fraction),replace=False))",
@@ -70,7 +69,14 @@
     "timing": "materialize and destroy complete answer IDs; no input parsing, verification, logging or IO",
     "correctness": "compare full sorted IDs to independent postings AND before timing",
     "size": "report serialized bytes, logical payload bytes and peak RSS separately; bytes/1e6=MB, bytes/2**20=MiB",
-    "estimated_rows": "never combine with measured latency/build speedup"
+    "estimated_rows": "never combine with measured latency/build speedup",
+    "lambda_sweep": [
+      0,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ]
   },
   "parameter_selection": {
     "default": "fixed_defaults_no_selection",
@@ -175,6 +181,37 @@
         "evidence": "experiment/reproduction/data/SYN_100/metadata.json"
       },
       "preprocessing": "lowercase [a-z0-9]+; unique tokens per object/query; source order retained"
+    },
+    "AOL": {
+      "paper_claim": {
+        "objects": 1467565,
+        "active_keywords": 1253271,
+        "keyword_object_pairs": 8954829,
+        "construction_queries": 10000,
+        "evaluation_queries": 10000,
+        "generator": "Page-title keyword sets; sample 20000 queries containing at least two distinct keywords from March 1-15, 2006; 10000 construction and 10000 evaluation"
+      },
+      "preprocessing": "Lowercase keyword sets extracted from page titles; at least two distinct keywords per query",
+      "source": "https://ir-datasets.com/aol-ia.html",
+      "query_window": {
+        "start_inclusive": "2006-03-01",
+        "end_exclusive": "2006-03-16",
+        "minimum_distinct_keywords": 2
+      },
+      "workload_drift": {
+        "start": "2006-03-15",
+        "end": "2006-05-31",
+        "interval_days": 15,
+        "replacement_share_per_step": 0.2,
+        "checkpoints": [
+          "2006-03-15",
+          "2006-03-30",
+          "2006-04-14",
+          "2006-04-29",
+          "2006-05-14",
+          "2006-05-29"
+        ]
+      }
     }
   },
   "baselines": [
@@ -286,5 +323,12 @@
       "implementation_details": "Base profile: fixed-width block pairs and bitmap AND, preserving input object order."
     }
   ],
-  "protocol_version": "2026-11-04"
+  "protocol_version": "2026-11-11",
+  "dp": {
+    "strategy": "single_state_per_fanout",
+    "approximate": true,
+    "root_exposed_branches": 1,
+    "access_records": "per_query",
+    "description": "Minimum over retained child states, not all feasible configurations; no global-optimality guarantee."
+  }
 }
