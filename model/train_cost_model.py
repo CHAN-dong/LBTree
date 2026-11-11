@@ -1,5 +1,5 @@
 # Legacy experiment utility; not used by the default paper construction path.
-# See model/query_latency.py and benchmarks/train_query_model.py for Eq. (2).
+# See model/query_latency.py for Eq. (2).
 import os
 import json
 import random

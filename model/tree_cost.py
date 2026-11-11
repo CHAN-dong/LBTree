@@ -1,5 +1,5 @@
 # Legacy experiment utility; not used by the default paper construction path.
-# See model/query_latency.py and benchmarks/train_query_model.py for Eq. (2).
+# See model/query_latency.py for Eq. (2).
 # model/tree_cost.py
 from __future__ import annotations
 from typing import Dict, Any, Tuple

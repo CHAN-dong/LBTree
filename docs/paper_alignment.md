@@ -7,7 +7,7 @@ The static construction and query path follows Sections II–V of
 |---|---|
 | Conjunctive keyword sets, Section II | Binary CSR construction; C++ intersections; unknown terms remain unsatisfiable |
 | Storage, Eq. (1) | `utils/cost_model.py`, `node_cost`, bitmap accounting |
-| Offline-trained three-input Mq, Eq. (2) | `model/query_latency.py`; measured collector and `benchmarks/train_query_model.py` |
+| Offline-trained three-input Mq, Eq. (2) | `model/query_latency.py`; compatible externally trained checkpoint |
 | Fixed global normalization, Eq. (4) | `parameter.py`, initialized once in `TreeBuilder.build_tree` |
 | Factorized graph/encoder, Eqs. (6)–(7) | `RelationEncoder`, frequency/hash features, query propagation, normalized IDF object aggregation |
 | Sigmoid and 0.5 threshold, Eqs. (8)–(9) | `model/paper_bbc.py`; probability at least 0.5 goes left |

@@ -19,8 +19,8 @@ not used to select winning configurations.
 Normalize text to lowercase `[a-z0-9]+` keyword sets. Preserve object order and
 source-object IDs. Corpus snapshots with empty objects require an adapter that
 preserves their IDs; the text interface accepts nonempty normalized rows.
-Validate exact corpus counts with `--dataset NAME --enforce-counts` in the
-preflight tool. Ordinary construction records observed counts in its manifest.
+Compare observed corpus counts with the selected dataset configuration and
+record the effective counts alongside each run.
 
 ## Sampling and seeds
 
@@ -56,7 +56,7 @@ reproduction setting. Inverted is an extra reference rather than a paper baselin
 Use the same selected objects, dense ID mapping, vocabulary, evaluation queries,
 compiler settings, hardware and thread budget for every method. Compare complete
 sorted result IDs with independent postings intersections before timing.
-For the workload benchmark, explicitly pass `--warmup 2 --rounds 5 --order-seed 42`.
+Record warmup passes, measured rounds and query-order seeds explicitly.
 Time complete answer materialization and destruction; exclude parsing, file IO,
 logging and correctness checks. Report mean and tail latency, separating empty
 and nonempty answers. Repeat learned builds with the declared model seeds.
@@ -67,17 +67,9 @@ serialized bytes, logical encoded payload and peak process memory. Use MB for
 bytes/1e6 and MiB for bytes/2**20. Keep analytic estimates in separately labeled
 measurement records, outside measured-latency or construction-speedup aggregates.
 
-`run_manifest.json` records input, configuration, predictor and source hashes,
-source revision, environment, effective settings, build status and index hashes.
-Use a fresh output directory per run. Preserve the manifest beside the raw
-measurements so results remain associated with their exact protocol.
-
-## Checks
-
-Run `python benchmarks/check_reproducibility.py -v`,
-`python benchmarks/check_paper_contract.py -v`, and CTest after building.
-Small integration fixtures exercise protocol checks and query correctness;
-performance comparisons use the separately configured dataset runs.
+Record input, configuration, predictor and source hashes, source revision,
+environment, effective settings, build status and index hashes with the raw
+measurements. Use a fresh output directory per run.
 
 ## Current paper profile
 

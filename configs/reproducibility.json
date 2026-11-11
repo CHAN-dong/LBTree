@@ -222,7 +222,7 @@
       "implementation": "flat bitmap",
       "source": "index/src/BitmapIndexBaseline.cpp",
       "fidelity": "reference",
-      "command_adapter": "lbtree_workload_bench DIRECTORY --warmup 2 --rounds 5 --order-seed 42 (without --expected)",
+      "command_adapter": "Use the flat Bitmap reference in the C++ index query program or an external driver.",
       "implementation_details": "Flat bitmap AND with complete result enumeration; measured and analytic records use distinct measurement kinds."
     },
     {

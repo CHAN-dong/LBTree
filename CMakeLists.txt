@@ -21,11 +21,6 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/
 )
 
-add_executable(lbtree_small_bench
-  benchmarks/small.cpp index/src/LBTree.cpp index/src/Node.cpp)
-enable_testing()
-add_test(NAME small_correctness COMMAND lbtree_small_bench 4096)
-
 find_package(nlohmann_json 3.11 QUIET)
 if(NOT nlohmann_json_FOUND)
   find_path(LBTREE_JSON_INCLUDE nlohmann/json.hpp
@@ -52,14 +47,8 @@ add_executable(lbtree
 )
 target_link_libraries(lbtree PRIVATE nlohmann_json::nlohmann_json)
 
-add_executable(lbtree_workload_bench
-  benchmarks/workload_bench.cpp index/src/LBTree.cpp index/src/Node.cpp
-  index/src/WorkloadIO.cpp index/src/VocabIO.cpp index/src/BitmapIndexBaseline.cpp)
-target_link_libraries(lbtree_workload_bench PRIVATE nlohmann_json::nlohmann_json)
 
 # add_executable(costest
 #   index/src/bitmap_sample_experiment.cpp
 #   index/src/BitmapIndexBaseline.cpp
 # )
-
-add_executable(lbtree_calibrate benchmarks/calibrate.cpp)

@@ -11,7 +11,7 @@ Reference: `Learned_Indexing_for_Conjunctive_Keyword_Queries (1).pdf`, Section V
 | Evaluation queries | 10,000 |
 
 These are the paper's target counts, not counts inferred by this repository from
-a downloaded corpus. Validate actual prepared inputs with the preflight command.
+a downloaded corpus. Validate actual prepared inputs against the configured target counts.
 
 1. Obtain AOL-IA through https://ir-datasets.com/aol-ia.html and its access terms.
 2. Extract `doc_id` and `title` from `docs_iter()`. Normalize titles to lowercase
@@ -27,19 +27,13 @@ a downloaded corpus. Validate actual prepared inputs with the preflight command.
    and split into disjoint sets of 10,000 each for the release paper profile.
    The paper specifies the date range and sample sizes; seed 42 is a release
    convention. Record OOV handling before enforcing the title-corpus input contract.
-5. Write normalized single-column CSV files with the `Title` header, then run:
+5. Write normalized single-column CSV files with the `Title` header. Compare
+   observed counts with `configs/reproducibility.json` and record input hashes,
+   seeds, date-selection rules and query splits in the extraction record.
 
-```bash
-python benchmarks/reproducibility.py --objects /path/aol_titles.csv \
-  --train /path/aol_train.csv --evaluation /path/aol_eval.csv \
-  --dataset AOL --profile paper_disjoint --enforce-counts \
-  --out build-local/aol_manifest.json
-```
-
-Supply these same files to `test.py --dataset AOL --profile paper_disjoint`
-with the frozen three-input Mq checkpoint and ordinary construction arguments.
-The normalized CSV does not contain timestamps; preflight cannot independently
-verify date selection. Preserve the upstream extraction manifest for that check.
+Use these same files in a custom construction driver calling the Python model
+modules, with the frozen three-input Mq checkpoint. The normalized CSV does not
+contain timestamps; preserve the upstream extraction record to verify dates.
 
 For Section VII's workload drift, use March 15-May 31 logs and replace 20% of
 the original evaluation workload every 15 days. Checkpoints are March 15,

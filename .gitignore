@@ -26,7 +26,6 @@ tree_out/
 tree_out_break/
 bitmap_cost_output/
 vis_root/
-benchmarks/trained/
 
 # Editor settings
 .vscode/

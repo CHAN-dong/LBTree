@@ -1,6 +1,6 @@
 # Data, construction, and evaluation
 
-Run the build and MLP calibration steps in the root README first.
+Build the C++ program using the root README and supply a compatible Mq checkpoint.
 
 ## Input contract
 
@@ -22,15 +22,12 @@ as an impossible keyword, giving an empty answer. Empty evaluation lines are ski
 ## Construction and evaluation
 
 ```bash
-export LBTREE_QUERY_MODEL="$PWD/build-local/mq.pt"
-python test.py --objects /path/objects.csv --workload /path/train_queries.csv \
-  --eval-workload /path/eval_queries.csv --profile paper_disjoint \
-  --out tree_out/custom --tradeoff 0.5 --epochs 300 --lr 0.0005 --threads 1
 ./build-local/lbtree tree_out/custom/vocab.json /path/objects.csv \
   /path/eval_queries.csv tree_out/custom/binary tree_out/custom/fanout --verify
 ```
 
-Outputs are `vocab.json`, `binary/tree.bin`, and `fanout/tree.bin`. Use a fresh
+The query program requires existing `vocab.json`, `binary/tree.bin`, and
+`fanout/tree.bin` files exported by a construction driver. Use a fresh
 output directory to preserve existing indexes. The latency MLP is frozen during
 clustering, but gradients flow through its inputs. Flat-index reference costs are
 initialized once per build, never once per node.
@@ -73,35 +70,15 @@ The paper's environment is single-threaded Linux on an Intel Xeon Platinum
 8369C at 2.90 GHz with 512 GB RAM. Record the hardware and software of each run
 in its manifest when evaluating another environment.
 
-## Reproducible construction records
+## Construction integration
 
-`test.py` requires `--eval-workload` so that the split can be checked before
-training. The default `paper_disjoint` profile compares sorted keyword sets,
-rejecting even a reordered duplicate across train/test. `historical_shared`
-requires identical ordered workloads and labels the result as in-workload.
-`--validation-workload` must be disjoint from both. Without validation, use only
-the predeclared defaults or report the whole parameter sweep; do not select
-parameters by evaluation latency.
+Use `model/tree_builder.py` and `model/tree_node_break.py` from a custom Python
+driver. Keep construction and evaluation keyword sets disjoint for the paper
+protocol, and use a separate validation workload if selecting parameters.
+Record observed object/keyword/pair counts, effective settings, random seeds,
+input and checkpoint hashes, environment and timings alongside each run.
+Use fresh output directories to preserve previous indexes.
 
-`--dataset NAME --enforce-paper-counts` also rejects deviations from the paper
-target object, active-keyword, pair and query counts. Ordinary runs allow
-different scales but record the differences in `run_manifest.json`. A fresh
-output directory is required to preserve previous manifests and indexes.
-Input counts are streamed once in preflight; vocabulary and query sets are kept
-in memory for validation. The current text entry point rejects blank objects,
-so a historical binary dataset containing empty objects must use a separately
-documented adapter rather than silently deleting them or shifting IDs.
-
-Model/NumPy/Python seed 42 is the default, and new repeated builds use 42/43/44.
-These are the explicit seed settings of the release.
-The historical object fractions are independently sampled without replacement
-using `default_rng(42)` and sorted source IDs; they are not nested by construction.
-Current `paper_bbc.py` performs every configured epoch at every split. The
-`training_patience=8` argument retained in legacy modules does not early-stop this
-paper path; it affected earlier GNN reruns.
-
-Use the workload benchmark with `--warmup 2 --rounds 5 --order-seed 42` when
-comparing with the historical baseline harness. These options are independent
-of `--expected`; never silently compare its previous 2/5 setting against the
-10/30 default or against `lbtree`'s single timed pass. Exported tree directories
-must be evaluated with the checked evaluation workload, not the training file.
+Model/NumPy/Python seed 42 is the declared default; repeated builds use 42/43/44.
+These are release conventions. The current factorized model uses all configured
+epochs; legacy patience settings do not early-stop this path.
