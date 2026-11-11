@@ -126,32 +126,5 @@ Use the supplied Mq calibration workflow or a compatible three-input checkpoint.
 Configure external baseline adapters using the implementation profiles in the
 parameter matrix. See [usage](docs/usage.md), [method mapping](docs/paper_alignment.md), and
 [the experiment guide](docs/reproducibility.md) for input and configuration details.
-
-## AOL title objects and chronological workload
-
-AOL denotes the AOL-IA collection in the paper. Objects are web pages represented
-by title keyword sets. The paper reports 1,467,565 objects, 1,253,271 distinct
-keywords and 8,954,829 keyword-object pairs. Select queries with at least two
-distinct keywords issued on March 1-15, 2006; sample 20,000 and use 10,000 for
-construction and 10,000 for evaluation. The release uses its declared disjoint
-profile and seed 42 for a repeatable split. These seed and normalization choices
-are release settings; the paper does not specify a split seed.
-
-Use `ir_datasets.load("aol-ia")`: titles come from `docs_iter()`, unique query
-texts from `queries_iter()`, and timestamps/frequencies from `qlogs_iter()`.
-Deduplicate multi-click records by `(user_id, query_id, time)` before counting
-search events; export aggregate frequencies without user IDs. Query-keyword
-coverage alone does not establish that a conjunction has matching objects.
-Obtain source data through the [dataset provider](https://ir-datasets.com/aol-ia.html).
-Raw query logs and user identifiers are not distributed in this repository.
-See [the AOL protocol](docs/aol.md) for input preparation and workload drift.
-
-## Node-breaking state compression
-
-Algorithm 4 retains one configuration per `(node, exposed branch count)` and
-backtraces from root state `k=1`. As stated in the paper, it is an approximate
-state-compression strategy: the minimum ranges over retained child states,
-not every feasible configuration. It does not guarantee a global optimum.
-Per-query access records are retained for the frozen Mq predictor. The paper's
 Pareto experiments are comparisons, not the default construction algorithm;
 full-vector dominance additionally requires a monotone cost model.
